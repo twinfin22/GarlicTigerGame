@@ -1,0 +1,28 @@
+{
+  "name": "garlic-tiger",
+  "version": "1.0.0",
+  "description": "Viral web game for LocalNomad - Become Korean by eating garlic!",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "game",
+    "phaser",
+    "korea",
+    "localnomad"
+  ],
+  "author": "LocalNomad",
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "phaser": "^3.70.0"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.55.2"
+  }
+}

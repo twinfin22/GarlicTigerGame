@@ -1,0 +1,104 @@
+{
+  "quizzes": [
+    {
+      "id": 1,
+      "npc": "ajumma",
+      "npcName": "Restaurant Ajumma",
+      "npcDescription": "Middle-aged woman with curly perm, apron, hands on hips",
+      "dialogue": "Aigoo, you finished eating! How would you like to pay?",
+      "choices": [
+        {"id": "A", "text": "Let's split it. I'll pay for what I ordered."},
+        {"id": "B", "text": "Let's divide the total equally among everyone."},
+        {"id": "C", "text": "I got this one! You can get the next round."}
+      ],
+      "correct": "C",
+      "wrongFeedback": "In Korea, someone usually treats the whole table! 'I got this one' is the way.",
+      "correctFeedback": "Perfect! Treating others is a big part of Korean dining culture!",
+      "transformation": {
+        "stage": 1,
+        "title": "Fur Shedding!",
+        "description": "The tiger's fur... is shedding?!"
+      }
+    },
+    {
+      "id": 2,
+      "npc": "worker",
+      "npcName": "Convenience Store Worker",
+      "npcDescription": "Young person in uniform, tired eyes, one earbud in",
+      "dialogue": "That'll be 4,500 won. Do you need a bag?",
+      "choices": [
+        {"id": "A", "text": "Yes please, bag it up!"},
+        {"id": "B", "text": "No thanks, I brought my own. *pulls out eco-bag*"},
+        {"id": "C", "text": "*Wait silently for them to pack it*"}
+      ],
+      "correct": "B",
+      "wrongFeedback": "Plastic bags cost extra in Korea! Locals always carry eco-bags.",
+      "correctFeedback": "Nice! You're already living that eco-friendly Korean lifestyle!",
+      "transformation": {
+        "stage": 2,
+        "title": "Body Stretching!",
+        "description": "The tiger is getting... longer?!"
+      }
+    },
+    {
+      "id": 3,
+      "npc": "grandma",
+      "npcName": "Subway Grandma",
+      "npcDescription": "Elderly woman in full hiking gear, visor, vest, hiking poles",
+      "dialogue": "*You're standing near the priority seats on a crowded subway*\n*An elderly woman is sitting, but she's staring at you...*\n*She sighs loudly* \"Hmph... young people these days...\"\n\nWhat do you do?",
+      "choices": [
+        {"id": "A", "text": "Offer her your non-priority seat nearby"},
+        {"id": "B", "text": "Avoid eye contact and pretend to be on your phone"},
+        {"id": "C", "text": "Ask if she needs help with anything"}
+      ],
+      "correct": "C",
+      "wrongFeedback": "She already has a seat! She might need help with directions or her bags. Koreans often help elders proactively.",
+      "correctFeedback": "Excellent! Proactively helping elders is deeply respected in Korea!",
+      "transformation": {
+        "stage": 3,
+        "title": "Tongue Transformation!",
+        "description": "The tiger can no longer pronounce 'TH'!\n\"Three\" → \"Seuree\""
+      }
+    },
+    {
+      "id": 4,
+      "npc": "senior",
+      "npcName": "Office Senior",
+      "npcDescription": "Man in wrinkled suit, red face (slightly drunk), loosened tie, holding soju bottle",
+      "dialogue": "Yah! First round is over. Let's go to second round!\n*It's 11 PM. You have an early flight tomorrow.*\n\nWhat do you say?",
+      "choices": [
+        {"id": "A", "text": "Sorry, I really need to go. I have plans tomorrow."},
+        {"id": "B", "text": "Sure! Where are we going next?"},
+        {"id": "C", "text": "*Check your watch and hesitate* \"Umm... maybe just one more...\""}
+      ],
+      "correct": "B",
+      "wrongFeedback": "Leaving early? Bold move. In Korean work culture, 회식 (team dinners) are sacred. The correct answer is enthusiastic participation!",
+      "correctFeedback": "That's the spirit! 회식 (hoesik) culture is all about team bonding!",
+      "transformation": {
+        "stage": 4,
+        "title": "Hair Transformation!",
+        "description": "The tiger's hair turned black!"
+      }
+    },
+    {
+      "id": 5,
+      "npc": "hipster",
+      "npcName": "Hipster Friend",
+      "npcDescription": "Trendy young person, bucket hat, oversized vintage tee, tote bag",
+      "dialogue": "Hey! We're planning a road trip this weekend.\nDon't you NOT like jjimjilbang (Korean spa)?\n\n*You actually LOVE jjimjilbang and want to go!*\n\nHow do you respond?",
+      "choices": [
+        {"id": "A", "text": "No, I really like jjimjilbang!"},
+        {"id": "B", "text": "Yes, I really like jjimjilbang!"},
+        {"id": "C", "text": "Jjimjilbang is weird, not in this lifetime."}
+      ],
+      "correct": "A",
+      "wrongFeedback": "Tricky! In Korean logic, 'Don't you NOT like X?' - answering 'No' means 'No, that's wrong, I DO like it!'",
+      "correctFeedback": "You've mastered Korean double-negative logic! 'No' = 'That's incorrect, I DO like it!'",
+      "transformation": {
+        "stage": 5,
+        "title": "Final Transformation!",
+        "description": "The tiger now bows 20 times a day!"
+      }
+    }
+  ]
+}
