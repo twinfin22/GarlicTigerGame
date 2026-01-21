@@ -1,0 +1,275 @@
+// GBGraphics - Authentic Game Boy style graphics utilities
+
+import { GAME_CONFIG } from '../config.js';
+
+// Get the active 4-color palette
+export function getPalette() {
+  const { COLORS, USE_GREEN_PALETTE } = GAME_CONFIG;
+  if (USE_GREEN_PALETTE) {
+    return {
+      darkest: COLORS.DARKEST,
+      dark: COLORS.DARK,
+      light: COLORS.LIGHT,
+      lightest: COLORS.LIGHTEST,
+    };
+  }
+  return {
+    darkest: COLORS.BLACK,
+    dark: COLORS.DARK_GRAY,
+    light: COLORS.LIGHT_GRAY,
+    lightest: COLORS.WHITE,
+  };
+}
+
+// Draw a pixel-perfect rectangle with GB colors
+export function drawRect(graphics, x, y, w, h, colorIndex = 0) {
+  const palette = getPalette();
+  const colors = [palette.darkest, palette.dark, palette.light, palette.lightest];
+  graphics.fillStyle(colors[colorIndex]);
+  graphics.fillRect(Math.floor(x), Math.floor(y), Math.floor(w), Math.floor(h));
+}
+
+// Draw dithered fill pattern (checkerboard for 50% blend)
+export function drawDithered(graphics, x, y, w, h, color1Index, color2Index) {
+  const palette = getPalette();
+  const colors = [palette.darkest, palette.dark, palette.light, palette.lightest];
+
+  // Base fill
+  graphics.fillStyle(colors[color1Index]);
+  graphics.fillRect(x, y, w, h);
+
+  // Dither pattern (every other pixel)
+  graphics.fillStyle(colors[color2Index]);
+  for (let py = y; py < y + h; py += 2) {
+    for (let px = x + (py % 4 === 0 ? 0 : 1); px < x + w; px += 2) {
+      graphics.fillRect(px, py, 1, 1);
+    }
+  }
+}
+
+// Draw Pokemon-style dialog box border
+export function drawDialogBox(graphics, x, y, w, h) {
+  const p = getPalette();
+
+  // Outer border (darkest)
+  graphics.fillStyle(p.darkest);
+  graphics.fillRect(x, y, w, h);
+
+  // Inner white fill
+  graphics.fillStyle(p.lightest);
+  graphics.fillRect(x + 2, y + 2, w - 4, h - 4);
+
+  // Shadow on right and bottom (dark)
+  graphics.fillStyle(p.dark);
+  graphics.fillRect(x + w - 2, y + 2, 2, h - 2);
+  graphics.fillRect(x + 2, y + h - 2, w - 2, 2);
+
+  // Highlight on top and left (light)
+  graphics.fillStyle(p.light);
+  graphics.fillRect(x + 2, y, w - 4, 2);
+  graphics.fillRect(x, y + 2, 2, h - 4);
+
+  // Corner pixels for rounded look
+  graphics.fillStyle(p.lightest);
+  graphics.fillRect(x, y, 2, 2);
+  graphics.fillRect(x + w - 2, y, 2, 2);
+  graphics.fillRect(x, y + h - 2, 2, 2);
+  graphics.fillRect(x + w - 2, y + h - 2, 2, 2);
+}
+
+// Draw 8x8 tile-based pattern
+export function drawTilePattern(graphics, x, y, w, h, pattern) {
+  const p = getPalette();
+  const colors = [p.darkest, p.dark, p.light, p.lightest];
+
+  for (let ty = 0; ty < h; ty += 8) {
+    for (let tx = 0; tx < w; tx += 8) {
+      for (let py = 0; py < 8 && ty + py < h; py++) {
+        for (let px = 0; px < 8 && tx + px < w; px++) {
+          const colorIdx = pattern[py * 8 + px] || 0;
+          graphics.fillStyle(colors[colorIdx]);
+          graphics.fillRect(x + tx + px, y + ty + py, 1, 1);
+        }
+      }
+    }
+  }
+}
+
+// Pre-defined 8x8 tile patterns
+export const TILES = {
+  // Grass pattern
+  GRASS: [
+    3,3,3,3,3,3,3,3,
+    3,3,2,3,3,3,2,3,
+    3,2,2,3,3,2,2,3,
+    3,3,3,3,3,3,3,3,
+    3,3,3,3,3,3,3,3,
+    3,2,3,3,3,2,3,3,
+    2,2,3,3,2,2,3,3,
+    3,3,3,3,3,3,3,3,
+  ],
+  // Floor/ground
+  FLOOR: [
+    2,2,2,2,2,2,2,2,
+    2,3,3,3,3,3,3,2,
+    2,3,3,3,3,3,3,2,
+    2,3,3,3,3,3,3,2,
+    2,3,3,3,3,3,3,2,
+    2,3,3,3,3,3,3,2,
+    2,3,3,3,3,3,3,2,
+    2,2,2,2,2,2,2,2,
+  ],
+  // Wall brick
+  BRICK: [
+    1,1,1,1,1,1,1,0,
+    1,2,2,2,2,2,2,0,
+    1,2,2,2,2,2,2,0,
+    0,0,0,0,0,0,0,0,
+    1,1,1,0,1,1,1,1,
+    2,2,2,0,2,2,2,1,
+    2,2,2,0,2,2,2,1,
+    0,0,0,0,0,0,0,0,
+  ],
+  // Water
+  WATER: [
+    1,1,1,2,1,1,1,2,
+    1,1,2,2,1,1,2,2,
+    1,2,2,1,1,2,2,1,
+    2,2,1,1,2,2,1,1,
+    2,1,1,1,2,1,1,1,
+    1,1,1,2,1,1,1,2,
+    1,1,2,2,1,1,2,2,
+    1,2,2,1,1,2,2,1,
+  ],
+  // Roof tile
+  ROOF: [
+    0,0,1,1,1,1,0,0,
+    0,1,1,1,1,1,1,0,
+    1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,
+    0,0,0,0,0,0,0,0,
+    0,0,1,1,1,1,0,0,
+    0,1,1,1,1,1,1,0,
+    1,1,1,1,1,1,1,1,
+  ],
+};
+
+// Draw a sprite from pixel data (each number is color index 0-3)
+export function drawSprite(graphics, x, y, spriteData, width, scale = 1) {
+  const p = getPalette();
+  const colors = [p.darkest, p.dark, p.light, p.lightest];
+
+  spriteData.forEach((colorIdx, i) => {
+    if (colorIdx >= 0) { // -1 = transparent
+      const px = (i % width) * scale;
+      const py = Math.floor(i / width) * scale;
+      graphics.fillStyle(colors[colorIdx]);
+      graphics.fillRect(x + px, y + py, scale, scale);
+    }
+  });
+}
+
+// Pre-defined sprites (16x16 standard Game Boy sprite size)
+export const SPRITES = {
+  // Tiger front-facing (16x16)
+  TIGER_FRONT: [
+    -1,-1,-1,-1, 2, 2, 2, 2, 2, 2, 2, 2,-1,-1,-1,-1,
+    -1,-1,-1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 2,-1,-1,-1,
+    -1,-1, 2, 3, 3, 0, 3, 3, 3, 3, 0, 3, 3, 2,-1,-1,
+    -1,-1, 2, 3, 3, 0, 3, 3, 3, 3, 0, 3, 3, 2,-1,-1,
+    -1,-1, 2, 3, 3, 3, 3, 1, 1, 3, 3, 3, 3, 2,-1,-1,
+    -1,-1,-1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 2,-1,-1,-1,
+    -1,-1, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2,-1,-1,
+    -1, 2, 3, 1, 3, 3, 3, 3, 3, 3, 3, 3, 1, 3, 2,-1,
+    -1, 2, 3, 3, 1, 3, 3, 3, 3, 3, 3, 1, 3, 3, 2,-1,
+    -1, 2, 3, 3, 3, 1, 3, 3, 3, 3, 1, 3, 3, 3, 2,-1,
+    -1, 2, 3, 3, 3, 3, 1, 3, 3, 1, 3, 3, 3, 3, 2,-1,
+    -1,-1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,-1,-1,
+    -1,-1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,-1,-1,
+    -1,-1,-1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 2,-1,-1,-1,
+    -1,-1,-1, 2, 1, 1,-1,-1,-1,-1, 1, 1, 2,-1,-1,-1,
+    -1,-1,-1,-1, 2, 2,-1,-1,-1,-1, 2, 2,-1,-1,-1,-1,
+  ],
+
+  // Garlic (8x8)
+  GARLIC: [
+    -1,-1, 2, 1, 1, 2,-1,-1,
+    -1, 3, 3, 3, 3, 3, 3,-1,
+     3, 3, 3, 3, 3, 3, 3, 3,
+     3, 3, 3, 2, 2, 3, 3, 3,
+     3, 3, 2, 3, 3, 2, 3, 3,
+     3, 3, 2, 3, 3, 2, 3, 3,
+    -1, 3, 3, 2, 2, 3, 3,-1,
+    -1,-1, 3, 3, 3, 3,-1,-1,
+  ],
+
+  // Guard (16x16)
+  GUARD: [
+    -1,-1,-1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,-1,-1,-1,
+    -1,-1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,-1,-1,
+    -1,-1,-1,-1, 0, 0, 0, 0, 0, 0, 0, 0,-1,-1,-1,-1,
+    -1,-1,-1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,-1,-1,-1,
+    -1,-1,-1, 2, 3, 0, 3, 3, 3, 0, 3, 3, 2,-1,-1,-1,
+    -1,-1,-1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 2,-1,-1,-1,
+    -1,-1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1,-1,-1,
+    -1,-1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,-1,-1,
+    -1,-1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1,-1,-1,
+    -1,-1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,-1,-1,
+    -1,-1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,-1,-1,
+    -1,-1,-1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,-1,-1,-1,
+    -1,-1,-1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,-1,-1,-1,
+    -1,-1,-1,-1, 1, 1, 1,-1, 1, 1, 1,-1,-1,-1,-1,-1,
+    -1,-1,-1,-1, 0, 0, 0,-1, 0, 0, 0,-1,-1,-1,-1,-1,
+    -1,-1,-1,-1, 0, 0, 0,-1, 0, 0, 0,-1,-1,-1,-1,-1,
+  ],
+
+  // Arrow indicator (8x8)
+  ARROW_DOWN: [
+    -1,-1,-1, 0,-1,-1,-1,-1,
+    -1,-1,-1, 0,-1,-1,-1,-1,
+    -1,-1,-1, 0,-1,-1,-1,-1,
+    -1,-1,-1, 0,-1,-1,-1,-1,
+     0, 0, 0, 0, 0, 0, 0,-1,
+    -1, 0, 0, 0, 0, 0,-1,-1,
+    -1,-1, 0, 0, 0,-1,-1,-1,
+    -1,-1,-1, 0,-1,-1,-1,-1,
+  ],
+};
+
+// Draw Pokemon-style battle transition (horizontal bars)
+export function createBattleTransition(scene, callback) {
+  const { width, height } = scene.scale;
+  const p = getPalette();
+  const barCount = 12;
+  const barHeight = Math.ceil(height / barCount);
+
+  const bars = [];
+  for (let i = 0; i < barCount; i++) {
+    const bar = scene.add.rectangle(
+      i % 2 === 0 ? -width : width * 2,
+      i * barHeight + barHeight / 2,
+      width,
+      barHeight + 1,
+      p.darkest
+    );
+    bars.push(bar);
+
+    scene.tweens.add({
+      targets: bar,
+      x: width / 2,
+      duration: 200,
+      delay: i * 30,
+      ease: 'Cubic.easeOut',
+    });
+  }
+
+  scene.time.delayedCall(barCount * 30 + 300, callback);
+}
+
+// Draw selection cursor (like Pokemon menu)
+export function drawCursor(graphics, x, y, size = 8) {
+  const p = getPalette();
+  graphics.fillStyle(p.darkest);
+  // Triangle pointing right
+  graphics.fillTriangle(x, y, x, y + size, x + size, y + size / 2);
+}

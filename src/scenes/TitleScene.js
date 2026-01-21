@@ -1,9 +1,10 @@
-// TitleScene - Game title and start screen
+// TitleScene - Authentic Game Boy style title screen
 
 import Phaser from 'phaser';
 import { GAME_CONFIG, SCENES } from '../config.js';
 import { audioManager } from '../utils/AudioManager.js';
 import { gameState } from '../utils/StateManager.js';
+import { getPalette, drawDialogBox, drawSprite, SPRITES } from '../utils/GBGraphics.js';
 
 export class TitleScene extends Phaser.Scene {
   constructor() {
@@ -12,80 +13,64 @@ export class TitleScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
-    const { COLORS, FONTS, TEXT_SIZES } = GAME_CONFIG;
+    const p = getPalette();
 
     // Reset game state
     gameState.reset();
 
-    // Background
-    this.cameras.main.setBackgroundColor(COLORS.BLACK);
+    // Fill background with lightest color (like GB boot)
+    this.cameras.main.setBackgroundColor(p.lightest);
 
-    // Draw decorative border
-    const border = this.add.graphics();
-    border.lineStyle(4, COLORS.WHITE);
-    border.strokeRect(10, 10, width - 20, height - 20);
-    border.lineStyle(2, COLORS.DARK_GRAY);
-    border.strokeRect(20, 20, width - 40, height - 40);
+    // Draw decorative border (Pokemon style)
+    this.drawBorder();
 
-    // Title
-    this.add.text(width / 2, 120, 'GARLIC', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.TITLE + 'px',
-      color: '#f0f0f0',
-    }).setOrigin(0.5);
+    // Title logo area
+    this.drawTitleLogo(width / 2, 50);
 
-    this.add.text(width / 2, 160, 'TIGER', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.TITLE + 'px',
-      color: '#f0f0f0',
-    }).setOrigin(0.5);
+    // Draw tiger sprite (centered)
+    this.drawTigerSprite(width / 2, 130);
 
-    // Draw placeholder tiger sprite
-    this.drawTitleTiger(width / 2, 280);
-
-    // Garlic icons
-    this.drawGarlicIcon(width / 2 - 80, 280);
-    this.drawGarlicIcon(width / 2 + 80, 280);
+    // Draw garlic decorations
+    this.drawGarlicSprite(width / 2 - 50, 130);
+    this.drawGarlicSprite(width / 2 + 50, 130);
 
     // Subtitle
-    this.add.text(width / 2, 380, 'Eat 5 garlics to', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.SMALL + 'px',
-      color: '#cacaca',
+    this.add.text(width / 2, 175, 'Eat 5 garlics', {
+      fontFamily: 'Press Start 2P',
+      fontSize: '8px',
+      color: '#' + p.darkest.toString(16).padStart(6, '0'),
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, 400, 'become Korean!', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.SMALL + 'px',
-      color: '#cacaca',
+    this.add.text(width / 2, 190, 'to become Korean!', {
+      fontFamily: 'Press Start 2P',
+      fontSize: '8px',
+      color: '#' + p.darkest.toString(16).padStart(6, '0'),
     }).setOrigin(0.5);
 
-    // Start button
-    const startButton = this.createButton(width / 2, 480, 'START GAME', () => {
-      audioManager.playConfirm();
-      this.startGame();
+    // Menu box (Pokemon style)
+    this.drawMenuBox(width / 2, 240);
+
+    // Blinking "PRESS START" text
+    const pressStart = this.add.text(width / 2, 265, 'PRESS START', {
+      fontFamily: 'Press Start 2P',
+      fontSize: '8px',
+      color: '#' + p.darkest.toString(16).padStart(6, '0'),
+    }).setOrigin(0.5);
+
+    // Classic Game Boy blink effect (on/off, not fade)
+    this.time.addEvent({
+      delay: 500,
+      callback: () => {
+        pressStart.visible = !pressStart.visible;
+      },
+      loop: true,
     });
 
-    // Blinking "Press to start" text
-    const pressText = this.add.text(width / 2, 540, 'Tap anywhere to begin', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.TINY + 'px',
-      color: '#8a8a8a',
-    }).setOrigin(0.5);
-
-    this.tweens.add({
-      targets: pressText,
-      alpha: 0.3,
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
-    });
-
-    // Branding
-    this.add.text(width / 2, height - 40, 'by LocalNomad', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.TINY + 'px',
-      color: '#4a4a4a',
+    // Copyright/branding
+    this.add.text(width / 2, height - 15, '2024 LOCALNOMAD', {
+      fontFamily: 'Press Start 2P',
+      fontSize: '6px',
+      color: '#' + p.dark.toString(16).padStart(6, '0'),
     }).setOrigin(0.5);
 
     // Input handling
@@ -95,7 +80,6 @@ export class TitleScene extends Phaser.Scene {
       this.startGame();
     });
 
-    // Keyboard input
     this.input.keyboard.on('keydown-SPACE', () => {
       audioManager.playConfirm();
       this.startGame();
@@ -113,111 +97,111 @@ export class TitleScene extends Phaser.Scene {
     }
   }
 
-  drawTitleTiger(x, y) {
+  drawBorder() {
+    const { width, height } = this.scale;
+    const p = getPalette();
     const g = this.add.graphics();
 
-    // Body
-    g.fillStyle(0xcacaca);
-    g.fillRect(x - 20, y - 25, 40, 50);
+    // Outer border
+    g.fillStyle(p.darkest);
+    g.fillRect(0, 0, width, 4);
+    g.fillRect(0, height - 4, width, 4);
+    g.fillRect(0, 0, 4, height);
+    g.fillRect(width - 4, 0, 4, height);
 
-    // Stripes
-    g.fillStyle(0x4a4a4a);
-    g.fillRect(x - 15, y - 20, 6, 3);
-    g.fillRect(x + 9, y - 20, 6, 3);
-    g.fillRect(x - 10, y - 10, 8, 3);
-    g.fillRect(x + 5, y, 8, 3);
-
-    // Head
-    g.fillStyle(0xcacaca);
-    g.fillRect(x - 16, y - 45, 32, 24);
-
-    // Ears
-    g.fillTriangle(x - 16, y - 45, x - 16, y - 58, x - 6, y - 45);
-    g.fillTriangle(x + 16, y - 45, x + 16, y - 58, x + 6, y - 45);
-
-    // Eyes
-    g.fillStyle(0x1a1a1a);
-    g.fillRect(x - 10, y - 38, 6, 6);
-    g.fillRect(x + 4, y - 38, 6, 6);
-
-    // Nose
-    g.fillStyle(0x4a4a4a);
-    g.fillTriangle(x - 3, y - 28, x + 3, y - 28, x, y - 24);
-
-    // Tail
-    g.fillStyle(0xcacaca);
-    g.fillRect(x + 18, y + 10, 15, 4);
-    g.fillRect(x + 30, y + 5, 4, 10);
+    // Inner highlight
+    g.fillStyle(p.dark);
+    g.fillRect(4, 4, width - 8, 2);
+    g.fillRect(4, height - 6, width - 8, 2);
+    g.fillRect(4, 4, 2, height - 8);
+    g.fillRect(width - 6, 4, 2, height - 8);
   }
 
-  drawGarlicIcon(x, y) {
+  drawTitleLogo(x, y) {
+    const p = getPalette();
     const g = this.add.graphics();
 
-    // Garlic bulb
-    g.fillStyle(0xf0f0f0);
-    g.fillCircle(x, y, 15);
-    g.fillCircle(x - 8, y + 5, 10);
-    g.fillCircle(x + 8, y + 5, 10);
+    // "GARLIC" text background box
+    g.fillStyle(p.darkest);
+    g.fillRect(x - 55, y - 5, 110, 22);
+    g.fillStyle(p.lightest);
+    g.fillRect(x - 53, y - 3, 106, 18);
 
-    // Stem
-    g.fillStyle(0x8a8a8a);
-    g.fillRect(x - 3, y - 22, 6, 10);
-
-    // Outline
-    g.lineStyle(2, 0x4a4a4a);
-    g.strokeCircle(x, y, 15);
-  }
-
-  createButton(x, y, text, callback) {
-    const { FONTS, TEXT_SIZES, COLORS } = GAME_CONFIG;
-
-    const container = this.add.container(x, y);
-
-    // Button background
-    const bg = this.add.graphics();
-    bg.fillStyle(COLORS.WHITE);
-    bg.fillRect(-80, -20, 160, 40);
-    bg.lineStyle(3, COLORS.DARK_GRAY);
-    bg.strokeRect(-80, -20, 160, 40);
-
-    // Button text
-    const buttonText = this.add.text(0, 0, text, {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.SMALL + 'px',
-      color: '#1a1a1a',
+    this.add.text(x, y + 5, 'GARLIC', {
+      fontFamily: 'Press Start 2P',
+      fontSize: '12px',
+      color: '#' + p.darkest.toString(16).padStart(6, '0'),
     }).setOrigin(0.5);
 
-    container.add([bg, buttonText]);
+    // "TIGER" text with shadow
+    this.add.text(x + 1, y + 27, 'TIGER', {
+      fontFamily: 'Press Start 2P',
+      fontSize: '14px',
+      color: '#' + p.dark.toString(16).padStart(6, '0'),
+    }).setOrigin(0.5);
 
-    // Make interactive
-    container.setSize(160, 40);
-    container.setInteractive({ useHandCursor: true });
+    this.add.text(x, y + 26, 'TIGER', {
+      fontFamily: 'Press Start 2P',
+      fontSize: '14px',
+      color: '#' + p.darkest.toString(16).padStart(6, '0'),
+    }).setOrigin(0.5);
+  }
 
-    container.on('pointerover', () => {
-      bg.clear();
-      bg.fillStyle(COLORS.LIGHT_GRAY);
-      bg.fillRect(-80, -20, 160, 40);
-      bg.lineStyle(3, COLORS.WHITE);
-      bg.strokeRect(-80, -20, 160, 40);
-    });
+  drawTigerSprite(x, y) {
+    const g = this.add.graphics();
+    // Draw at 2x scale for title screen
+    drawSprite(g, x - 16, y - 16, SPRITES.TIGER_FRONT, 16, 2);
+  }
 
-    container.on('pointerout', () => {
-      bg.clear();
-      bg.fillStyle(COLORS.WHITE);
-      bg.fillRect(-80, -20, 160, 40);
-      bg.lineStyle(3, COLORS.DARK_GRAY);
-      bg.strokeRect(-80, -20, 160, 40);
-    });
+  drawGarlicSprite(x, y) {
+    const g = this.add.graphics();
+    drawSprite(g, x - 8, y - 8, SPRITES.GARLIC, 8, 2);
+  }
 
-    container.on('pointerdown', callback);
+  drawMenuBox(x, y) {
+    const g = this.add.graphics();
+    const p = getPalette();
 
-    return container;
+    // Pokemon-style menu box
+    const boxWidth = 120;
+    const boxHeight = 40;
+
+    // Shadow
+    g.fillStyle(p.dark);
+    g.fillRect(x - boxWidth/2 + 3, y - boxHeight/2 + 3, boxWidth, boxHeight);
+
+    // Main box
+    g.fillStyle(p.lightest);
+    g.fillRect(x - boxWidth/2, y - boxHeight/2, boxWidth, boxHeight);
+
+    // Border
+    g.fillStyle(p.darkest);
+    g.fillRect(x - boxWidth/2, y - boxHeight/2, boxWidth, 3);
+    g.fillRect(x - boxWidth/2, y + boxHeight/2 - 3, boxWidth, 3);
+    g.fillRect(x - boxWidth/2, y - boxHeight/2, 3, boxHeight);
+    g.fillRect(x + boxWidth/2 - 3, y - boxHeight/2, 3, boxHeight);
+
+    // Inner border
+    g.fillStyle(p.light);
+    g.fillRect(x - boxWidth/2 + 3, y - boxHeight/2 + 3, boxWidth - 6, 2);
+    g.fillRect(x - boxWidth/2 + 3, y - boxHeight/2 + 3, 2, boxHeight - 6);
   }
 
   startGame() {
-    this.cameras.main.fadeOut(500, 26, 26, 26);
-    this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start(SCENES.INTRO);
+    // Classic screen wipe transition
+    const { width, height } = this.scale;
+    const p = getPalette();
+
+    const wipe = this.add.rectangle(0, height / 2, 0, height, p.darkest).setOrigin(0, 0.5);
+
+    this.tweens.add({
+      targets: wipe,
+      width: width,
+      duration: 300,
+      ease: 'Linear',
+      onComplete: () => {
+        this.scene.start(SCENES.INTRO);
+      },
     });
   }
 }

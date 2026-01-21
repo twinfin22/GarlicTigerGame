@@ -14,24 +14,24 @@ import { GameOverScene } from './scenes/GameOverScene.js';
 import { VictoryScene } from './scenes/VictoryScene.js';
 import { ScrollScene } from './scenes/ScrollScene.js';
 
-// Phaser Game Configuration
+// Phaser Game Configuration - Authentic Game Boy dimensions
 const config = {
   type: Phaser.AUTO,
   parent: 'game-container',
   width: GAME_CONFIG.WIDTH,
   height: GAME_CONFIG.HEIGHT,
-  backgroundColor: GAME_CONFIG.COLORS.BLACK,
+  backgroundColor: GAME_CONFIG.USE_GREEN_PALETTE ? GAME_CONFIG.COLORS.LIGHTEST : GAME_CONFIG.COLORS.WHITE,
   pixelArt: true,
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     min: {
-      width: 320,
-      height: 480,
+      width: 160, // Original Game Boy resolution
+      height: 144,
     },
     max: {
-      width: 720,
-      height: 1280,
+      width: 640, // 4x scale max
+      height: 576,
     },
   },
   scene: [

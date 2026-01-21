@@ -1,19 +1,26 @@
 // Game Configuration
 export const GAME_CONFIG = {
-  // Screen dimensions (16:9 mobile portrait base)
-  WIDTH: 360,
-  HEIGHT: 640,
+  // Screen dimensions - Game Boy aspect ratio scaled up (160x144 original)
+  // Using 2.5x scale for mobile: 400x360, but we need portrait so we rotate concept
+  WIDTH: 320,
+  HEIGHT: 288, // True Game Boy ratio scaled 2x
 
-  // Colors (Game Boy monochrome style)
+  // Authentic Game Boy 4-color palette (DMG - Dot Matrix Game)
+  // Original green-ish tint, but we'll use clean grayscale
   COLORS: {
-    BLACK: 0x1a1a1a,
-    DARK_GRAY: 0x4a4a4a,
-    MID_GRAY: 0x8a8a8a,
-    LIGHT_GRAY: 0xcacaca,
-    WHITE: 0xf0f0f0,
-    RED: 0xff4444, // For wrong answers
-    GREEN: 0x44ff44, // For correct answers
+    DARKEST: 0x0f380f,   // Black (GB: darkest green)
+    DARK: 0x306230,      // Dark gray (GB: dark green)
+    LIGHT: 0x8bac0f,     // Light gray (GB: light green)
+    LIGHTEST: 0x9bbc0f,  // White (GB: lightest green)
+    // Monochrome alternative (Game Boy Pocket style)
+    BLACK: 0x202020,
+    DARK_GRAY: 0x606060,
+    LIGHT_GRAY: 0xa0a0a0,
+    WHITE: 0xe0e0e0,
   },
+
+  // Use Game Boy green palette for authentic feel
+  USE_GREEN_PALETTE: true,
 
   // Typography
   FONTS: {

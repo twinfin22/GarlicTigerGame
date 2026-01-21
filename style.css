@@ -1,4 +1,6 @@
-/* Garlic Tiger - Game Boy Style CSS */
+/* Garlic Tiger - Authentic Game Boy Aesthetics */
+
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
 * {
   margin: 0;
@@ -7,42 +9,99 @@
 }
 
 :root {
-  /* Game Boy Color Palette */
+  /* Authentic Game Boy DMG palette */
   --gb-darkest: #0f380f;
   --gb-dark: #306230;
   --gb-light: #8bac0f;
   --gb-lightest: #9bbc0f;
 
-  /* Monochrome palette for this game */
-  --black: #1a1a1a;
-  --dark-gray: #4a4a4a;
-  --mid-gray: #8a8a8a;
-  --light-gray: #cacaca;
-  --white: #f0f0f0;
+  /* Game Boy shell color */
+  --gb-shell: #8b8b7a;
+  --gb-shell-dark: #6b6b5a;
+  --gb-shell-light: #ababaa;
+
+  /* Screen bezel */
+  --gb-bezel: #4a4a4a;
+  --gb-screen-border: #2a2a2a;
 }
 
 html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: var(--black);
-  font-family: 'Press Start 2P', cursive;
-}
-
-#game-container {
-  width: 100%;
-  height: 100%;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  font-family: 'Press Start 2P', monospace;
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: var(--black);
 }
 
+/* Game Boy shell frame */
+#game-container {
+  position: relative;
+  background: var(--gb-shell);
+  padding: 20px;
+  border-radius: 10px 10px 30px 30px;
+  box-shadow:
+    inset 2px 2px 0 var(--gb-shell-light),
+    inset -2px -2px 0 var(--gb-shell-dark),
+    0 10px 30px rgba(0,0,0,0.5);
+}
+
+/* Screen bezel */
+#game-container::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  bottom: 60px;
+  background: var(--gb-bezel);
+  border-radius: 5px;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+}
+
+/* Screen area */
 #game-container canvas {
+  position: relative;
+  z-index: 1;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  max-width: 100%;
-  max-height: 100%;
+  border: 4px solid var(--gb-screen-border);
+  border-radius: 3px;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
+}
+
+/* Scanline overlay for CRT effect */
+#game-container::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  bottom: 60px;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.1) 2px,
+    rgba(0, 0, 0, 0.1) 4px
+  );
+  pointer-events: none;
+  z-index: 2;
+  border-radius: 5px;
+}
+
+/* "DOT MATRIX WITH STEREO SOUND" label area */
+#game-container .gb-label {
+  position: absolute;
+  bottom: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--gb-shell-dark);
+  font-size: 6px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 /* Loading Screen */
@@ -52,13 +111,13 @@ html, body {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: var(--black);
+  background-color: var(--gb-lightest);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   z-index: 100;
-  transition: opacity 0.5s ease-out;
+  transition: opacity 0.3s ease-out;
 }
 
 #loading-screen.hidden {
@@ -67,32 +126,32 @@ html, body {
 }
 
 .loading-text {
-  color: var(--white);
-  font-size: 16px;
-  margin-bottom: 20px;
-  animation: blink 1s infinite;
+  color: var(--gb-darkest);
+  font-size: 8px;
+  margin-bottom: 10px;
+  animation: blink 0.5s steps(2) infinite;
 }
 
 @keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0.3; }
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
 }
 
 .loading-bar {
-  width: 200px;
-  height: 20px;
-  border: 3px solid var(--white);
-  background-color: var(--black);
+  width: 100px;
+  height: 8px;
+  border: 2px solid var(--gb-darkest);
+  background-color: var(--gb-lightest);
 }
 
 .loading-fill {
   width: 0%;
   height: 100%;
-  background-color: var(--white);
-  transition: width 0.3s ease-out;
+  background-color: var(--gb-darkest);
+  transition: width 0.2s steps(10);
 }
 
-/* Prevent text selection during gameplay */
+/* Prevent text selection */
 #game-container * {
   -webkit-user-select: none;
   -moz-user-select: none;
@@ -101,27 +160,51 @@ html, body {
   -webkit-touch-callout: none;
 }
 
-/* Mobile touch optimization */
-@media (max-width: 768px) {
-  body {
-    touch-action: none;
+/* Mobile adjustments */
+@media (max-width: 400px) {
+  #game-container {
+    padding: 10px;
+    border-radius: 5px 5px 15px 15px;
+  }
+
+  #game-container::before {
+    top: 5px;
+    left: 5px;
+    right: 5px;
+    bottom: 30px;
+  }
+
+  #game-container::after {
+    top: 5px;
+    left: 5px;
+    right: 5px;
+    bottom: 30px;
   }
 }
 
-/* Scanline effect overlay (optional, for extra retro feel) */
-.scanlines {
+/* Screen glow effect */
+@keyframes screen-glow {
+  0%, 100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.02);
+  }
+}
+
+#game-container canvas {
+  animation: screen-glow 4s ease-in-out infinite;
+}
+
+/* Power LED indicator */
+.power-led {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(0, 0, 0, 0.1),
-    rgba(0, 0, 0, 0.1) 1px,
-    transparent 1px,
-    transparent 2px
-  );
-  z-index: 10;
+  top: 15px;
+  left: 20px;
+  width: 6px;
+  height: 6px;
+  background: #cc3333;
+  border-radius: 50%;
+  box-shadow: 0 0 5px #ff0000;
+  z-index: 3;
 }

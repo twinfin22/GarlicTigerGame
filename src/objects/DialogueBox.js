@@ -1,7 +1,8 @@
-// DialogueBox - RPG style dialogue with typewriter effect
+// DialogueBox - Pokemon-style dialogue with typewriter effect
 
 import { GAME_CONFIG } from '../config.js';
 import { audioManager } from '../utils/AudioManager.js';
+import { getPalette } from '../utils/GBGraphics.js';
 
 export class DialogueBox {
   constructor(scene, x, y, width, height) {
@@ -28,73 +29,112 @@ export class DialogueBox {
   }
 
   create() {
-    const { COLORS, TEXT_SIZES, FONTS } = GAME_CONFIG;
+    const p = getPalette();
+    const darkHex = '#' + p.darkest.toString(16).padStart(6, '0');
+    const lightHex = '#' + p.lightest.toString(16).padStart(6, '0');
 
     // Container for all dialogue elements
     this.container = this.scene.add.container(this.x, this.y);
 
-    // Background box
+    // Draw Pokemon-style dialog box
     this.background = this.scene.add.graphics();
-    this.background.fillStyle(COLORS.BLACK, 0.95);
-    this.background.fillRect(0, 0, this.width, this.height);
-    this.background.lineStyle(3, COLORS.WHITE);
-    this.background.strokeRect(0, 0, this.width, this.height);
-
-    // Inner border for retro feel
-    this.background.lineStyle(1, COLORS.DARK_GRAY);
-    this.background.strokeRect(4, 4, this.width - 8, this.height - 8);
+    this.drawPokemonBox();
 
     this.container.add(this.background);
 
-    // Name tag (initially hidden)
-    this.nameTag = this.scene.add.text(10, -20, '', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.SMALL + 'px',
-      color: '#f0f0f0',
-      backgroundColor: '#1a1a1a',
-      padding: { x: 6, y: 4 },
+    // Name tag (Pokemon style - sits on top border)
+    this.nameTag = this.scene.add.text(8, -6, '', {
+      fontFamily: 'Press Start 2P',
+      fontSize: '8px',
+      color: darkHex,
+      backgroundColor: lightHex,
+      padding: { x: 4, y: 2 },
     });
     this.container.add(this.nameTag);
 
     // Main text content
-    this.textContent = this.scene.add.text(15, 15, '', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.SMALL + 'px',
-      color: '#f0f0f0',
-      wordWrap: { width: this.width - 30 },
-      lineSpacing: 8,
+    this.textContent = this.scene.add.text(12, 10, '', {
+      fontFamily: 'Press Start 2P',
+      fontSize: '8px',
+      color: darkHex,
+      wordWrap: { width: this.width - 24 },
+      lineSpacing: 6,
     });
     this.container.add(this.textContent);
 
-    // Continue indicator (blinking triangle)
-    this.indicator = this.scene.add.text(this.width - 25, this.height - 20, '▼', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.SMALL + 'px',
-      color: '#f0f0f0',
-    });
+    // Continue indicator (blinking triangle - Pokemon style)
+    this.indicator = this.scene.add.graphics();
+    this.drawIndicator();
+    this.indicator.setPosition(this.width - 16, this.height - 14);
     this.indicator.setVisible(false);
     this.container.add(this.indicator);
 
-    // Blinking animation for indicator
-    this.scene.tweens.add({
-      targets: this.indicator,
-      alpha: 0.3,
-      duration: 500,
-      yoyo: true,
-      repeat: -1,
+    // Classic blink (not smooth fade)
+    this.scene.time.addEvent({
+      delay: 300,
+      callback: () => {
+        if (this.indicator.visible) {
+          this.indicator.alpha = this.indicator.alpha === 1 ? 0 : 1;
+        }
+      },
+      loop: true,
     });
 
     this.hide();
   }
 
+  drawPokemonBox() {
+    const p = getPalette();
+    const w = this.width;
+    const h = this.height;
+
+    this.background.clear();
+
+    // Outer shadow
+    this.background.fillStyle(p.dark);
+    this.background.fillRect(4, 4, w, h);
+
+    // Main white fill
+    this.background.fillStyle(p.lightest);
+    this.background.fillRect(0, 0, w, h);
+
+    // Outer border (2px thick)
+    this.background.fillStyle(p.darkest);
+    // Top
+    this.background.fillRect(0, 0, w, 3);
+    // Bottom
+    this.background.fillRect(0, h - 3, w, 3);
+    // Left
+    this.background.fillRect(0, 0, 3, h);
+    // Right
+    this.background.fillRect(w - 3, 0, 3, h);
+
+    // Inner border (light color for 3D effect)
+    this.background.fillStyle(p.light);
+    // Top inner
+    this.background.fillRect(3, 3, w - 6, 2);
+    // Left inner
+    this.background.fillRect(3, 3, 2, h - 6);
+
+    // Corner cutouts for rounded look
+    this.background.fillStyle(p.lightest);
+    this.background.fillRect(0, 0, 3, 3);
+    this.background.fillRect(w - 3, 0, 3, 3);
+    this.background.fillRect(0, h - 3, 3, 3);
+    this.background.fillRect(w - 3, h - 3, 3, 3);
+  }
+
+  drawIndicator() {
+    const p = getPalette();
+    this.indicator.clear();
+    this.indicator.fillStyle(p.darkest);
+    // Small triangle pointing down
+    this.indicator.fillTriangle(0, 0, 8, 0, 4, 6);
+  }
+
   show() {
     this.container.setVisible(true);
-    this.container.setAlpha(0);
-    this.scene.tweens.add({
-      targets: this.container,
-      alpha: 1,
-      duration: 200,
-    });
+    this.container.setAlpha(1);
   }
 
   hide() {
@@ -120,12 +160,13 @@ export class DialogueBox {
     this.onComplete = onComplete;
     this.isTyping = true;
     this.indicator.setVisible(false);
+    this.indicator.alpha = 1;
 
     this.textContent.setText('');
 
-    // Start typewriter effect
+    // Start typewriter effect (faster for Game Boy feel)
     this.typewriterTimer = this.scene.time.addEvent({
-      delay: GAME_CONFIG.SETTINGS.TYPEWRITER_SPEED,
+      delay: 25, // Faster typewriter
       callback: this.typeNextChar,
       callbackScope: this,
       repeat: text.length - 1,
@@ -134,12 +175,13 @@ export class DialogueBox {
 
   typeNextChar() {
     if (this.charIndex < this.currentText.length) {
-      this.displayedText += this.currentText[this.charIndex];
+      const char = this.currentText[this.charIndex];
+      this.displayedText += char;
       this.textContent.setText(this.displayedText);
       this.charIndex++;
 
-      // Play typewriter sound occasionally
-      if (this.charIndex % 2 === 0 && this.currentText[this.charIndex - 1] !== ' ') {
+      // Play typewriter sound for non-space characters
+      if (char !== ' ' && char !== '\n') {
         audioManager.playTypewriter();
       }
     }
