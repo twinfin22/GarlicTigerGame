@@ -1,556 +1,727 @@
-// ScrollScene - Final scene with scroll reveal and email capture
+// ScrollScene - Final scene with glowing scroll and email capture
 
 import Phaser from 'phaser';
 import { GAME_CONFIG, SCENES } from '../config.js';
 import { audioManager } from '../utils/AudioManager.js';
 import { shareManager } from '../utils/ShareManager.js';
+import { getPalette } from '../utils/GBGraphics.js';
 
 export class ScrollScene extends Phaser.Scene {
   constructor() {
     super({ key: SCENES.SCROLL });
-    this.nameInput = null;
-    this.emailInput = null;
+    this.phase = 'walking'; // walking, absorbing, captured, form
+    this.tiger = null;
+    this.scroll = null;
+    this.glowParticles = [];
   }
 
   create() {
     const { width, height } = this.scale;
-    const { COLORS, FONTS, TEXT_SIZES } = GAME_CONFIG;
+    const p = getPalette();
 
-    // Background (mystical interior)
-    this.cameras.main.setBackgroundColor(0x2a2a2a);
+    this.phase = 'walking';
+
+    // Mystical background
+    this.cameras.main.setBackgroundColor(p.darkest);
     this.cameras.main.fadeIn(500);
 
-    // Draw Hanok interior
-    this.drawHanokInterior();
+    // Draw mystical room
+    this.drawMysticalRoom();
 
-    // Floating scroll
-    this.createFloatingScroll(width / 2, 200);
+    // Create glowing scroll at top
+    this.createGlowingScroll(width / 2, 70);
 
-    // Scroll content icons
-    this.createScrollIcons(width / 2, 240);
+    // Create tiger at bottom (will walk up)
+    this.tiger = this.createTiger(width / 2, height - 50);
 
-    // Scroll title
-    this.add.text(width / 2, 340, 'The Sacred Scroll of', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.TINY + 'px',
-      color: '#f0f0f0',
+    // Instructions
+    this.instructionText = this.add.text(width / 2, height - 20, 'Press SPACE to approach', {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '7px',
+      color: '#' + p.light.toString(16).padStart(6, '0'),
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, 360, 'K-Digital Economy', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.SMALL + 'px',
-      color: '#f0f0f0',
-    }).setOrigin(0.5);
+    // Blink instruction
+    this.time.addEvent({
+      delay: 500,
+      callback: () => {
+        if (this.instructionText) {
+          this.instructionText.visible = !this.instructionText.visible;
+        }
+      },
+      loop: true,
+    });
 
-    this.add.text(width / 2, 390, 'Your Complete Guide to\nSettling in Korea', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.TINY + 'px',
-      color: '#8a8a8a',
-      align: 'center',
-      lineSpacing: 4,
-    }).setOrigin(0.5);
-
-    // Email capture form
-    this.createEmailForm();
-
-    // LocalNomad branding
-    this.add.text(width / 2, height - 20, 'Powered by LocalNomad', {
-      fontFamily: FONTS.MAIN,
-      fontSize: '6px',
-      color: '#4a4a4a',
-    }).setOrigin(0.5);
+    // Input
+    this.input.on('pointerdown', () => this.handleInput());
+    this.input.keyboard.on('keydown-SPACE', () => this.handleInput());
+    this.input.keyboard.on('keydown-ENTER', () => this.handleInput());
   }
 
-  drawHanokInterior() {
+  drawMysticalRoom() {
     const { width, height } = this.scale;
+    const p = getPalette();
     const g = this.add.graphics();
 
-    // Floor
-    g.fillStyle(0x3a3a3a);
+    // Floor gradient effect
+    g.fillStyle(p.dark);
     g.fillRect(0, height * 0.6, width, height * 0.4);
 
-    // Floor pattern (traditional)
-    g.lineStyle(1, 0x4a4a4a);
-    for (let x = 0; x < width; x += 40) {
+    // Floor tiles
+    g.lineStyle(1, p.darkest);
+    for (let x = 0; x < width; x += 32) {
       g.lineBetween(x, height * 0.6, x, height);
     }
-    for (let y = height * 0.6; y < height; y += 40) {
-      g.lineBetween(0, y, width, y);
-    }
 
-    // Walls
-    g.fillStyle(0x2a2a2a);
-    g.fillRect(0, 0, 20, height * 0.6);
-    g.fillRect(width - 20, 0, 20, height * 0.6);
+    // Side walls/pillars
+    g.fillStyle(p.dark);
+    g.fillRect(0, 0, 15, height * 0.6);
+    g.fillRect(width - 15, 0, 15, height * 0.6);
 
-    // Traditional window frames
-    g.fillStyle(0x4a4a4a);
-    g.fillRect(40, 50, 60, 80);
-    g.fillRect(width - 100, 50, 60, 80);
-
-    // Window paper
-    g.fillStyle(0x5a5a5a);
-    g.fillRect(45, 55, 50, 70);
-    g.fillRect(width - 95, 55, 50, 70);
-
-    // Window lattice
-    g.lineStyle(2, 0x4a4a4a);
-    // Left window
-    g.lineBetween(70, 55, 70, 125);
-    g.lineBetween(45, 90, 95, 90);
-    // Right window
-    g.lineBetween(width - 70, 55, width - 70, 125);
-    g.lineBetween(width - 95, 90, width - 45, 90);
-
-    // Hanging lanterns
-    this.drawLantern(80, 30);
-    this.drawLantern(width - 80, 30);
-
-    // Mystical light rays
-    g.fillStyle(0xf0f0f0);
-    g.alpha = 0.05;
-    g.fillTriangle(width / 2, 0, width / 2 - 100, 150, width / 2 + 100, 150);
+    // Light rays from scroll position
+    g.fillStyle(p.light);
+    g.alpha = 0.1;
+    g.fillTriangle(width / 2, 40, width / 2 - 80, height * 0.6, width / 2 + 80, height * 0.6);
     g.alpha = 1;
+
+    // Mystical symbols on walls
+    const darkHex = '#' + p.dark.toString(16).padStart(6, '0');
+    const symbols = ['?', '?', '?', '?'];
+    symbols.forEach((s, i) => {
+      this.add.text(30 + i * 65, 30, s, {
+        fontFamily: GAME_CONFIG.FONTS.MAIN,
+        fontSize: '8px',
+        color: darkHex,
+      });
+    });
   }
 
-  drawLantern(x, y) {
-    const g = this.add.graphics();
+  createGlowingScroll(x, y) {
+    const p = getPalette();
 
-    // String
-    g.lineStyle(1, 0x6a6a6a);
-    g.lineBetween(x, 0, x, y);
+    // Scroll container
+    this.scrollContainer = this.add.container(x, y);
 
-    // Lantern body
-    g.fillStyle(0x5a5a5a);
-    g.fillRect(x - 10, y, 20, 30);
+    // Outer glow (pulsing)
+    this.scrollGlow = this.add.graphics();
+    this.scrollGlow.fillStyle(p.lightest, 0.3);
+    this.scrollGlow.fillCircle(0, 0, 45);
+    this.scrollContainer.add(this.scrollGlow);
 
-    // Glow
-    g.fillStyle(0x8a8a8a);
-    g.fillRect(x - 8, y + 5, 16, 20);
+    // Inner glow
+    const innerGlow = this.add.graphics();
+    innerGlow.fillStyle(p.light, 0.5);
+    innerGlow.fillCircle(0, 0, 30);
+    this.scrollContainer.add(innerGlow);
 
-    // Tassels
-    g.lineStyle(1, 0x6a6a6a);
-    g.lineBetween(x - 5, y + 30, x - 5, y + 40);
-    g.lineBetween(x + 5, y + 30, x + 5, y + 40);
-  }
+    // Scroll body
+    const scrollBody = this.add.graphics();
+    scrollBody.fillStyle(p.lightest);
+    scrollBody.fillRect(-35, -20, 70, 40);
+    this.scrollContainer.add(scrollBody);
 
-  createFloatingScroll(x, y) {
-    const g = this.add.graphics();
+    // Scroll rolls (top and bottom)
+    const rolls = this.add.graphics();
+    rolls.fillStyle(p.light);
+    rolls.fillRect(-40, -23, 80, 6);
+    rolls.fillRect(-40, 17, 80, 6);
+    // End caps
+    rolls.fillStyle(p.dark);
+    rolls.fillCircle(-40, -20, 4);
+    rolls.fillCircle(40, -20, 4);
+    rolls.fillCircle(-40, 20, 4);
+    rolls.fillCircle(40, 20, 4);
+    this.scrollContainer.add(rolls);
 
-    // Scroll background
-    g.fillStyle(0xf0e8d8);
-    g.fillRect(x - 120, y - 60, 240, 120);
+    // Scroll content hint (Korean text)
+    const scrollText = this.add.text(0, 0, '?????', {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '8px',
+      color: '#' + p.darkest.toString(16).padStart(6, '0'),
+    }).setOrigin(0.5);
+    this.scrollContainer.add(scrollText);
 
-    // Scroll roll tops
-    g.fillStyle(0x8a7a6a);
-    g.fillRect(x - 130, y - 65, 260, 12);
-    g.fillRect(x - 130, y + 53, 260, 12);
-
-    // Roll end caps
-    g.fillStyle(0x6a5a4a);
-    g.fillCircle(x - 130, y - 59, 8);
-    g.fillCircle(x + 130, y - 59, 8);
-    g.fillCircle(x - 130, y + 59, 8);
-    g.fillCircle(x + 130, y + 59, 8);
-
-    // Scroll border
-    g.lineStyle(2, 0x6a5a4a);
-    g.strokeRect(x - 120, y - 60, 240, 120);
-
-    // Glow effect
-    const glow = this.add.rectangle(x, y, 260, 140, 0xf0f0f0, 0.1);
-
-    // Floating animation
+    // Glow animation
     this.tweens.add({
-      targets: [g, glow],
-      y: y - 5,
-      duration: 2000,
+      targets: this.scrollGlow,
+      alpha: 0.1,
+      scaleX: 1.2,
+      scaleY: 1.2,
+      duration: 1000,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
+
+    // Floating animation
+    this.tweens.add({
+      targets: this.scrollContainer,
+      y: y - 5,
+      duration: 1500,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Sparkle particles
+    this.createSparkles(x, y);
   }
 
-  createScrollIcons(x, y) {
-    const icons = [
-      { symbol: 'A', label: 'Apps' },
-      { symbol: 'B', label: 'Banking' },
-      { symbol: 'H', label: 'Housing' },
-      { symbol: 'V', label: 'Visa' },
-      { symbol: 'T', label: 'Transit' },
-    ];
+  createSparkles(x, y) {
+    const p = getPalette();
 
-    const startX = x - 100;
-    const spacing = 50;
+    for (let i = 0; i < 8; i++) {
+      const sparkle = this.add.star(
+        x + Phaser.Math.Between(-40, 40),
+        y + Phaser.Math.Between(-30, 30),
+        4, 1, 3,
+        p.lightest
+      );
 
-    icons.forEach((icon, i) => {
-      const iconX = startX + i * spacing;
-
-      // Icon circle
-      const g = this.add.graphics();
-      g.fillStyle(0x4a4a4a);
-      g.fillCircle(iconX, y, 18);
-      g.lineStyle(1, 0x2a2a2a);
-      g.strokeCircle(iconX, y, 18);
-
-      // Icon text
-      this.add.text(iconX, y, icon.symbol, {
-        fontFamily: GAME_CONFIG.FONTS.MAIN,
-        fontSize: '10px',
-        color: '#f0e8d8',
-      }).setOrigin(0.5);
-
-      // Label
-      this.add.text(iconX, y + 30, icon.label, {
-        fontFamily: GAME_CONFIG.FONTS.MAIN,
-        fontSize: '6px',
-        color: '#1a1a1a',
-      }).setOrigin(0.5);
-    });
-  }
-
-  createEmailForm() {
-    const { width, height } = this.scale;
-    const { FONTS, TEXT_SIZES, COLORS } = GAME_CONFIG;
-
-    const formY = 440;
-
-    // Form title
-    this.add.text(width / 2, formY, 'Receive your copy of the scroll?', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.TINY + 'px',
-      color: '#f0f0f0',
-    }).setOrigin(0.5);
-
-    // Create HTML form overlay using safe DOM methods
-    this.createHTMLForm();
-
-    // Get Guide button
-    this.createButton(width / 2, formY + 80, 'GET THE GUIDE', () => {
-      this.showEmailPrompt();
-    });
-
-    // Share button
-    this.createButton(width / 2, formY + 130, 'SHARE VICTORY', () => {
-      this.shareVictory();
-    });
-
-    // Visit LocalNomad
-    const visitText = this.add.text(width / 2, formY + 175, 'Visit localnomad.club', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.TINY + 'px',
-      color: '#8a8a8a',
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-    visitText.on('pointerdown', () => {
-      window.open(GAME_CONFIG.BRANDING.URL, '_blank');
-    });
-
-    visitText.on('pointerover', () => {
-      visitText.setColor('#f0f0f0');
-    });
-
-    visitText.on('pointerout', () => {
-      visitText.setColor('#8a8a8a');
-    });
-  }
-
-  createHTMLForm() {
-    // Create form container using safe DOM methods
-    const formDiv = document.createElement('div');
-    formDiv.id = 'email-form';
-    formDiv.style.display = 'none';
-    formDiv.style.position = 'fixed';
-    formDiv.style.top = '50%';
-    formDiv.style.left = '50%';
-    formDiv.style.transform = 'translate(-50%, -50%)';
-    formDiv.style.background = '#1a1a1a';
-    formDiv.style.border = '3px solid #f0f0f0';
-    formDiv.style.padding = '20px';
-    formDiv.style.zIndex = '1000';
-    formDiv.style.fontFamily = "'Press Start 2P', monospace";
-    formDiv.style.width = '280px';
-
-    // Title text
-    const titleDiv = document.createElement('div');
-    titleDiv.style.color = '#f0f0f0';
-    titleDiv.style.fontSize = '10px';
-    titleDiv.style.marginBottom = '15px';
-    titleDiv.style.textAlign = 'center';
-    titleDiv.style.lineHeight = '1.5';
-    titleDiv.textContent = 'Enter your email to receive the K-Digital Guide!';
-    formDiv.appendChild(titleDiv);
-
-    // Name input
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.id = 'game-name';
-    nameInput.placeholder = 'Name';
-    nameInput.style.width = '100%';
-    nameInput.style.padding = '10px';
-    nameInput.style.marginBottom = '10px';
-    nameInput.style.background = '#2a2a2a';
-    nameInput.style.border = '2px solid #8a8a8a';
-    nameInput.style.color = '#f0f0f0';
-    nameInput.style.fontFamily = "'Press Start 2P', monospace";
-    nameInput.style.fontSize = '8px';
-    nameInput.style.boxSizing = 'border-box';
-    formDiv.appendChild(nameInput);
-
-    // Email input
-    const emailInput = document.createElement('input');
-    emailInput.type = 'email';
-    emailInput.id = 'game-email';
-    emailInput.placeholder = 'Email';
-    emailInput.style.width = '100%';
-    emailInput.style.padding = '10px';
-    emailInput.style.marginBottom = '15px';
-    emailInput.style.background = '#2a2a2a';
-    emailInput.style.border = '2px solid #8a8a8a';
-    emailInput.style.color = '#f0f0f0';
-    emailInput.style.fontFamily = "'Press Start 2P', monospace";
-    emailInput.style.fontSize = '8px';
-    emailInput.style.boxSizing = 'border-box';
-    formDiv.appendChild(emailInput);
-
-    // Submit button
-    const submitBtn = document.createElement('button');
-    submitBtn.id = 'submit-email';
-    submitBtn.textContent = 'SEND MY SCROLL';
-    submitBtn.style.width = '100%';
-    submitBtn.style.padding = '12px';
-    submitBtn.style.background = '#f0f0f0';
-    submitBtn.style.border = 'none';
-    submitBtn.style.color = '#1a1a1a';
-    submitBtn.style.fontFamily = "'Press Start 2P', monospace";
-    submitBtn.style.fontSize = '8px';
-    submitBtn.style.cursor = 'pointer';
-    submitBtn.style.marginBottom = '10px';
-    formDiv.appendChild(submitBtn);
-
-    // Close button
-    const closeBtn = document.createElement('button');
-    closeBtn.id = 'close-form';
-    closeBtn.textContent = 'CLOSE';
-    closeBtn.style.width = '100%';
-    closeBtn.style.padding = '8px';
-    closeBtn.style.background = 'transparent';
-    closeBtn.style.border = '1px solid #8a8a8a';
-    closeBtn.style.color = '#8a8a8a';
-    closeBtn.style.fontFamily = "'Press Start 2P', monospace";
-    closeBtn.style.fontSize = '8px';
-    closeBtn.style.cursor = 'pointer';
-    formDiv.appendChild(closeBtn);
-
-    document.body.appendChild(formDiv);
-
-    // Event listeners
-    submitBtn.addEventListener('click', () => {
-      this.submitEmail();
-    });
-
-    closeBtn.addEventListener('click', () => {
-      this.hideEmailForm();
-    });
-  }
-
-  showEmailPrompt() {
-    audioManager.playSelect();
-    const form = document.getElementById('email-form');
-    if (form) {
-      form.style.display = 'block';
-    }
-  }
-
-  hideEmailForm() {
-    const form = document.getElementById('email-form');
-    if (form) {
-      form.style.display = 'none';
-    }
-  }
-
-  submitEmail() {
-    const nameEl = document.getElementById('game-name');
-    const emailEl = document.getElementById('game-email');
-
-    const name = nameEl ? nameEl.value : '';
-    const email = emailEl ? emailEl.value : '';
-
-    if (!email || !email.includes('@')) {
-      alert('Please enter a valid email address');
-      return;
-    }
-
-    // Log for now (replace with actual form submission)
-    console.log('Form submitted:', { name, email });
-
-    // Send to backend
-    this.sendToBackend(name, email);
-  }
-
-  async sendToBackend(name, email) {
-    // Option 1: Formspree (free, no config needed)
-    // Replace YOUR_FORM_ID with actual Formspree form ID when ready
-    // const FORMSPREE_URL = 'https://formspree.io/f/YOUR_FORM_ID';
-
-    try {
-      // For demo, just show success
-      // Uncomment below for real submission:
-      /*
-      const response = await fetch(FORMSPREE_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name, email, source: 'garlic-tiger-game' }),
+      this.tweens.add({
+        targets: sparkle,
+        alpha: 0,
+        scale: 0,
+        duration: 800,
+        delay: i * 200,
+        yoyo: true,
+        repeat: -1,
       });
 
-      if (!response.ok) throw new Error('Submission failed');
-      */
-
-      // Show success
-      this.hideEmailForm();
-      this.showSuccessMessage();
-      audioManager.playCorrect();
-    } catch (error) {
-      console.error('Form submission error:', error);
-      alert('Oops! Something went wrong. Please try again.');
+      this.glowParticles.push(sparkle);
     }
   }
 
-  showSuccessMessage() {
-    const { width, height } = this.scale;
+  createTiger(x, y) {
+    const p = getPalette();
+    const container = this.add.container(x, y);
 
-    // Success overlay
-    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x1a1a1a, 0.9);
+    const g = this.add.graphics();
 
-    // Carrier pigeon animation
-    this.add.text(width / 2, height / 2 - 50, 'A carrier pigeon has', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: GAME_CONFIG.TEXT_SIZES.SMALL + 'px',
-      color: '#f0f0f0',
-    }).setOrigin(0.5);
+    // Final form tiger (Korean - black hair, tall)
+    const bodyHeight = 24;
+    const bodyWidth = 14;
 
-    this.add.text(width / 2, height / 2 - 20, 'been dispatched!', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: GAME_CONFIG.TEXT_SIZES.SMALL + 'px',
-      color: '#f0f0f0',
-    }).setOrigin(0.5);
+    // Body
+    g.fillStyle(p.lightest);
+    g.fillRect(-bodyWidth / 2, -bodyHeight / 2, bodyWidth, bodyHeight);
 
-    // Pigeon icon (using > as placeholder)
-    const pigeon = this.add.text(width / 2, height / 2 + 30, '>', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '24px',
-      color: '#f0f0f0',
-    }).setOrigin(0.5);
+    // Head (black hair)
+    g.fillStyle(p.dark);
+    g.fillRect(-8, -bodyHeight / 2 - 12, 16, 12);
 
-    // Flying animation
+    // Eyes
+    g.fillStyle(p.darkest);
+    g.fillRect(-5, -bodyHeight / 2 - 8, 3, 3);
+    g.fillRect(2, -bodyHeight / 2 - 8, 3, 3);
+
+    // Ears
+    g.fillStyle(p.dark);
+    g.fillTriangle(-8, -bodyHeight / 2 - 12, -8, -bodyHeight / 2 - 18, -4, -bodyHeight / 2 - 12);
+    g.fillTriangle(8, -bodyHeight / 2 - 12, 8, -bodyHeight / 2 - 18, 4, -bodyHeight / 2 - 12);
+
+    // Happy smile
+    g.lineStyle(1, p.darkest);
+    g.beginPath();
+    g.arc(0, -bodyHeight / 2 - 3, 3, 0.3, Math.PI - 0.3);
+    g.strokePath();
+
+    container.add(g);
+    return container;
+  }
+
+  handleInput() {
+    audioManager.resume();
+
+    switch (this.phase) {
+      case 'walking':
+        this.startWalking();
+        break;
+      case 'absorbing':
+        // Wait for animation
+        break;
+      case 'captured':
+        this.showEmailForm();
+        break;
+      case 'form':
+        // Form handles its own input
+        break;
+    }
+  }
+
+  startWalking() {
+    this.phase = 'absorbing';
+    if (this.instructionText) this.instructionText.destroy();
+
+    audioManager.playWalk();
+
+    // Tiger walks up to scroll
     this.tweens.add({
-      targets: pigeon,
-      x: width + 50,
-      y: height / 2 - 50,
-      duration: 2000,
+      targets: this.tiger,
+      y: 120,
+      duration: 1500,
+      ease: 'Linear',
+      onComplete: () => this.absorbScroll(),
+    });
+  }
+
+  absorbScroll() {
+    const { width, height } = this.scale;
+    const p = getPalette();
+
+    audioManager.playCorrect();
+
+    // Flash effect
+    const flash = this.add.rectangle(width / 2, height / 2, width, height, p.lightest, 0.8);
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 500,
+    });
+
+    // Scroll shrinks into tiger
+    this.tweens.add({
+      targets: this.scrollContainer,
+      y: 120,
+      scaleX: 0,
+      scaleY: 0,
+      alpha: 0,
+      duration: 800,
       ease: 'Power2',
     });
 
-    // Check email message
-    this.time.delayedCall(2000, () => {
-      this.add.text(width / 2, height / 2 + 80, 'Check your email soon!', {
-        fontFamily: GAME_CONFIG.FONTS.MAIN,
-        fontSize: GAME_CONFIG.TEXT_SIZES.TINY + 'px',
-        color: '#8a8a8a',
-      }).setOrigin(0.5);
-
-      // Tap to dismiss
-      const dismissText = this.add.text(width / 2, height - 50, 'Tap to continue', {
-        fontFamily: GAME_CONFIG.FONTS.MAIN,
-        fontSize: GAME_CONFIG.TEXT_SIZES.TINY + 'px',
-        color: '#6a6a6a',
-      }).setOrigin(0.5);
-
-      this.input.once('pointerdown', () => {
-        overlay.destroy();
-        dismissText.destroy();
+    // Particles fly into tiger
+    this.glowParticles.forEach((particle, i) => {
+      this.tweens.add({
+        targets: particle,
+        x: width / 2,
+        y: 120,
+        alpha: 0,
+        duration: 600,
+        delay: i * 50,
       });
+    });
+
+    // Tiger glows
+    this.time.delayedCall(800, () => {
+      this.tigerGlowEffect();
     });
   }
 
-  async shareVictory() {
-    audioManager.playSelect();
-    const result = await shareManager.share(5, true);
+  tigerGlowEffect() {
+    const { width, height } = this.scale;
+    const p = getPalette();
 
-    if (result.success) {
-      const { width, height } = this.scale;
-      const feedback = this.add.text(
-        width / 2,
-        height / 2,
-        result.method === 'clipboard' ? 'Copied!' : 'Shared!',
-        {
-          fontFamily: GAME_CONFIG.FONTS.MAIN,
-          fontSize: GAME_CONFIG.TEXT_SIZES.SMALL + 'px',
-          color: '#44ff44',
-          backgroundColor: '#1a1a1a',
-          padding: { x: 15, y: 10 },
-        }
-      ).setOrigin(0.5);
+    // Glow around tiger
+    const tigerGlow = this.add.graphics();
+    tigerGlow.fillStyle(p.lightest, 0.5);
+    tigerGlow.fillCircle(width / 2, 120, 40);
 
-      this.tweens.add({
-        targets: feedback,
-        alpha: 0,
-        duration: 500,
-        delay: 1500,
-        onComplete: () => feedback.destroy(),
-      });
-    }
+    this.tweens.add({
+      targets: tigerGlow,
+      alpha: 0,
+      scaleX: 2,
+      scaleY: 2,
+      duration: 1000,
+      onComplete: () => {
+        tigerGlow.destroy();
+        this.showCapturedMessage();
+      },
+    });
   }
 
-  createButton(x, y, text, callback) {
-    const { FONTS, TEXT_SIZES, COLORS } = GAME_CONFIG;
+  showCapturedMessage() {
+    const { width, height } = this.scale;
+    const p = getPalette();
+    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
+    const lightestHex = '#' + p.lightest.toString(16).padStart(6, '0');
+
+    this.phase = 'captured';
+
+    // Message box (Pokemon style)
+    const boxY = height - 80;
+    const boxH = 65;
+
+    const box = this.add.graphics();
+    box.fillStyle(p.lightest);
+    box.fillRect(10, boxY, width - 20, boxH);
+    box.lineStyle(3, p.darkest);
+    box.strokeRect(10, boxY, width - 20, boxH);
+
+    // Message
+    this.add.text(width / 2, boxY + 15, 'The scroll\'s knowledge', {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '8px',
+      color: darkestHex,
+    }).setOrigin(0.5);
+
+    this.add.text(width / 2, boxY + 30, 'flows into you!', {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '8px',
+      color: darkestHex,
+    }).setOrigin(0.5);
+
+    // Continue prompt
+    const continueText = this.add.text(width - 25, boxY + boxH - 12, '?', {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '8px',
+      color: darkestHex,
+    });
+
+    this.tweens.add({
+      targets: continueText,
+      alpha: 0.3,
+      duration: 400,
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  showEmailForm() {
+    const { width, height } = this.scale;
+    const p = getPalette();
+    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
+    const lightestHex = '#' + p.lightest.toString(16).padStart(6, '0');
+    const darkHex = '#' + p.dark.toString(16).padStart(6, '0');
+
+    this.phase = 'form';
+    audioManager.playSelect();
+
+    // Clear previous UI
+    this.children.removeAll();
+
+    // Background
+    this.cameras.main.setBackgroundColor(p.darkest);
+
+    // Border
+    const border = this.add.graphics();
+    border.lineStyle(3, p.lightest);
+    border.strokeRect(4, 4, width - 8, height - 8);
+
+    // Title
+    this.add.text(width / 2, 25, 'SACRED SCROLL', {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '10px',
+      color: lightestHex,
+    }).setOrigin(0.5);
+
+    // Subtitle
+    this.add.text(width / 2, 45, 'K-Digital Guide', {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '8px',
+      color: darkHex,
+    }).setOrigin(0.5);
+
+    // Small scroll icon
+    const scrollIcon = this.add.graphics();
+    scrollIcon.fillStyle(p.lightest);
+    scrollIcon.fillRect(width / 2 - 20, 60, 40, 25);
+    scrollIcon.fillStyle(p.light);
+    scrollIcon.fillRect(width / 2 - 23, 58, 46, 4);
+    scrollIcon.fillRect(width / 2 - 23, 83, 46, 4);
+
+    // Prompt
+    this.add.text(width / 2, 105, 'Receive your scroll?', {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '8px',
+      color: lightestHex,
+    }).setOrigin(0.5);
+
+    // Email input area (in-game style)
+    this.createInGameEmailForm(width / 2, 150);
+  }
+
+  createInGameEmailForm(x, y) {
+    const { width, height } = this.scale;
+    const p = getPalette();
+    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
+    const lightestHex = '#' + p.lightest.toString(16).padStart(6, '0');
+
+    // Email input box
+    const inputBox = this.add.graphics();
+    inputBox.fillStyle(p.lightest);
+    inputBox.fillRect(20, y - 12, width - 40, 24);
+    inputBox.lineStyle(2, p.dark);
+    inputBox.strokeRect(20, y - 12, width - 40, 24);
+
+    // Create HTML input (positioned over game canvas)
+    this.createEmailInput(y);
+
+    // Submit button (matching localnomad.club style)
+    this.createInGameButton(x, y + 40, 'GET FREE ACCESS', () => {
+      this.submitEmailForm();
+    });
+
+    // Skip button
+    this.createInGameButton(x, y + 75, 'SKIP', () => {
+      this.showFinalScreen();
+    });
+
+    // Privacy note (matching localnomad.club)
+    this.add.text(width / 2, y + 105, 'No spam, ever.', {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '6px',
+      color: '#' + p.dark.toString(16).padStart(6, '0'),
+    }).setOrigin(0.5);
+
+    this.add.text(width / 2, y + 118, 'Unsubscribe anytime.', {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '6px',
+      color: '#' + p.dark.toString(16).padStart(6, '0'),
+    }).setOrigin(0.5);
+  }
+
+  createEmailInput(y) {
+    // Position input over the game canvas
+    const canvas = this.game.canvas;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = rect.width / this.scale.width;
+    const scaleY = rect.height / this.scale.height;
+
+    // Create input element
+    const input = document.createElement('input');
+    input.type = 'email';
+    input.id = 'scroll-email';
+    input.placeholder = 'your@email.com';
+    input.style.position = 'absolute';
+    input.style.left = (rect.left + 22 * scaleX) + 'px';
+    input.style.top = (rect.top + (y - 10) * scaleY) + 'px';
+    input.style.width = ((this.scale.width - 44) * scaleX) + 'px';
+    input.style.height = (20 * scaleY) + 'px';
+    input.style.padding = '2px 8px';
+    input.style.border = 'none';
+    input.style.background = 'transparent';
+    input.style.color = '#000000';
+    input.style.fontFamily = "'Press Start 2P', monospace";
+    input.style.fontSize = (7 * scaleY) + 'px';
+    input.style.outline = 'none';
+    input.style.zIndex = '1000';
+
+    document.body.appendChild(input);
+    this.emailInput = input;
+
+    // Focus input
+    this.time.delayedCall(100, () => input.focus());
+
+    // Handle Enter key
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        this.submitEmailForm();
+      }
+    });
+  }
+
+  createInGameButton(x, y, text, callback) {
+    const p = getPalette();
+    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
 
     const container = this.add.container(x, y);
 
     const bg = this.add.graphics();
-    bg.fillStyle(COLORS.WHITE);
-    bg.fillRect(-100, -18, 200, 36);
-    bg.lineStyle(2, COLORS.DARK_GRAY);
-    bg.strokeRect(-100, -18, 200, 36);
+    bg.fillStyle(p.light);
+    bg.fillRect(-70, -12, 140, 24);
+    bg.lineStyle(2, p.darkest);
+    bg.strokeRect(-70, -12, 140, 24);
+    container.add(bg);
 
-    const buttonText = this.add.text(0, 0, text, {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.TINY + 'px',
-      color: '#1a1a1a',
+    const btnText = this.add.text(0, 0, text, {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '8px',
+      color: darkestHex,
     }).setOrigin(0.5);
+    container.add(btnText);
 
-    container.add([bg, buttonText]);
-    container.setSize(200, 36);
+    container.setSize(140, 24);
     container.setInteractive({ useHandCursor: true });
 
     container.on('pointerover', () => {
       bg.clear();
-      bg.fillStyle(COLORS.LIGHT_GRAY);
-      bg.fillRect(-100, -18, 200, 36);
-      bg.lineStyle(2, COLORS.WHITE);
-      bg.strokeRect(-100, -18, 200, 36);
+      bg.fillStyle(p.lightest);
+      bg.fillRect(-70, -12, 140, 24);
+      bg.lineStyle(2, p.darkest);
+      bg.strokeRect(-70, -12, 140, 24);
     });
 
     container.on('pointerout', () => {
       bg.clear();
-      bg.fillStyle(COLORS.WHITE);
-      bg.fillRect(-100, -18, 200, 36);
-      bg.lineStyle(2, COLORS.DARK_GRAY);
-      bg.strokeRect(-100, -18, 200, 36);
+      bg.fillStyle(p.light);
+      bg.fillRect(-70, -12, 140, 24);
+      bg.lineStyle(2, p.darkest);
+      bg.strokeRect(-70, -12, 140, 24);
     });
 
-    container.on('pointerdown', callback);
+    container.on('pointerdown', () => {
+      audioManager.playSelect();
+      callback();
+    });
 
     return container;
   }
 
+  submitEmailForm() {
+    const email = this.emailInput ? this.emailInput.value : '';
+
+    if (!email || !email.includes('@')) {
+      // Show error in game
+      this.showInGameMessage('Enter valid email!', false);
+      return;
+    }
+
+    // Send to Airtable
+    this.sendToAirtable(email);
+  }
+
+  async sendToAirtable(email) {
+    // Use serverless API endpoint for secure submission
+    // API key is kept server-side, not exposed to frontend
+    const API_ENDPOINT = '/api/subscribe';
+
+    try {
+      // Show loading state
+      this.showInGameMessage('Sending...', true);
+
+      const response = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email,
+          source: 'garlic-tiger-game',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('API error:', data);
+        throw new Error(data.error || 'Submission failed');
+      }
+
+      console.log('Email submitted successfully');
+
+      // Remove input
+      if (this.emailInput) {
+        this.emailInput.remove();
+        this.emailInput = null;
+      }
+
+      audioManager.playCorrect();
+      this.showInGameMessage('Scroll sent!', true);
+
+      this.time.delayedCall(1500, () => {
+        this.showFinalScreen();
+      });
+    } catch (error) {
+      console.error('Subscription error:', error);
+      this.showInGameMessage('Error! Try again.', false);
+    }
+  }
+
+  showInGameMessage(text, success) {
+    const { width, height } = this.scale;
+    const p = getPalette();
+
+    const msg = this.add.text(width / 2, height / 2, text, {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '10px',
+      color: success ? '#' + p.lightest.toString(16).padStart(6, '0') : '#ff6666',
+      backgroundColor: '#' + p.darkest.toString(16).padStart(6, '0'),
+      padding: { x: 10, y: 5 },
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: msg,
+      alpha: 0,
+      duration: 300,
+      delay: 1200,
+      onComplete: () => msg.destroy(),
+    });
+  }
+
+  showFinalScreen() {
+    const { width, height } = this.scale;
+    const p = getPalette();
+    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
+    const lightestHex = '#' + p.lightest.toString(16).padStart(6, '0');
+
+    // Remove email input if still there
+    if (this.emailInput) {
+      this.emailInput.remove();
+      this.emailInput = null;
+    }
+
+    // Clear and show final screen
+    this.children.removeAll();
+    this.cameras.main.setBackgroundColor(p.darkest);
+
+    // Border
+    const border = this.add.graphics();
+    border.lineStyle(3, p.lightest);
+    border.strokeRect(4, 4, width - 8, height - 8);
+
+    // Congratulations
+    this.add.text(width / 2, 40, 'CONGRATULATIONS!', {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '10px',
+      color: lightestHex,
+    }).setOrigin(0.5);
+
+    this.add.text(width / 2, 60, 'You are now Korean!', {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '8px',
+      color: '#' + p.light.toString(16).padStart(6, '0'),
+    }).setOrigin(0.5);
+
+    // Final tiger
+    const finalTiger = this.createTiger(width / 2, 120);
+
+    // Sparkles around tiger
+    for (let i = 0; i < 6; i++) {
+      const sparkle = this.add.star(
+        width / 2 + Phaser.Math.Between(-40, 40),
+        120 + Phaser.Math.Between(-30, 30),
+        4, 1, 3, p.lightest
+      );
+      this.tweens.add({
+        targets: sparkle,
+        alpha: 0.3,
+        scale: 0.5,
+        duration: 600,
+        delay: i * 100,
+        yoyo: true,
+        repeat: -1,
+      });
+    }
+
+    // Buttons
+    this.createInGameButton(width / 2, 180, 'SHARE VICTORY', async () => {
+      const result = await shareManager.shareWithStage(5, 5);
+      if (result.success) {
+        this.showInGameMessage('Shared!', true);
+      }
+    });
+
+    this.createInGameButton(width / 2, 215, 'PLAY AGAIN', () => {
+      this.scene.start(SCENES.TITLE);
+    });
+
+    // Branding
+    this.add.text(width / 2, height - 20, 'localnomad.club', {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '7px',
+      color: '#' + p.dark.toString(16).padStart(6, '0'),
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        window.open(GAME_CONFIG.BRANDING.URL, '_blank');
+      });
+  }
+
   shutdown() {
-    // Cleanup HTML form when leaving scene
-    const form = document.getElementById('email-form');
-    if (form) {
-      form.remove();
+    // Cleanup HTML elements
+    if (this.emailInput) {
+      this.emailInput.remove();
+      this.emailInput = null;
     }
   }
 }

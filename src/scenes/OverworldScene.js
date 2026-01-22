@@ -5,6 +5,7 @@ import { GAME_CONFIG, SCENES } from '../config.js';
 import { Tiger } from '../objects/Tiger.js';
 import { audioManager } from '../utils/AudioManager.js';
 import { gameState } from '../utils/StateManager.js';
+import { getPalette, drawSprite, SPRITES } from '../utils/GBGraphics.js';
 
 export class OverworldScene extends Phaser.Scene {
   constructor() {
@@ -20,16 +21,17 @@ export class OverworldScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
+    const p = getPalette();
     const { COLORS } = GAME_CONFIG;
 
     this.isTransitioning = false;
     gameState.resetTilesWalked();
 
-    // Background
-    this.cameras.main.setBackgroundColor(COLORS.BLACK);
+    // Background - BRIGHT green like Pokemon!
+    this.cameras.main.setBackgroundColor(COLORS.GRASS_LIGHT);
     this.cameras.main.fadeIn(300);
 
-    // Draw the map
+    // Draw the map with bright procedural tiles
     this.drawMap();
 
     // Create tiger at center
@@ -68,11 +70,17 @@ export class OverworldScene extends Phaser.Scene {
       this.touchStartPos = null;
     });
 
-    // Instructions text
-    this.add.text(width / 2, 50, 'Explore Korea!', {
+    // Instructions text - white box with black text (Pokemon style)
+    const instructionBg = this.add.graphics();
+    instructionBg.fillStyle(0xffffff);
+    instructionBg.fillRect(width / 2 - 70, 35, 140, 24);
+    instructionBg.lineStyle(2, 0x000000);
+    instructionBg.strokeRect(width / 2 - 70, 35, 140, 24);
+
+    this.add.text(width / 2, 47, 'Explore Korea!', {
       fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: GAME_CONFIG.TEXT_SIZES.SMALL + 'px',
-      color: '#8a8a8a',
+      fontSize: '10px',
+      color: '#000000',
     }).setOrigin(0.5);
   }
 
@@ -122,9 +130,9 @@ export class OverworldScene extends Phaser.Scene {
         break;
     }
 
-    // Boundary check
+    // Boundary check - allow movement in the playable area
     if (newX < padding || newX > width - padding ||
-        newY < 80 || newY > height - 150) {
+        newY < 80 || newY > height - 80) {
       return;
     }
 
@@ -158,8 +166,9 @@ export class OverworldScene extends Phaser.Scene {
 
   battleTransition() {
     const { width, height } = this.scale;
+    const p = getPalette();
 
-    // Create horizontal line wipe effect
+    // Create horizontal line wipe effect (Pokemon style)
     const lines = [];
     const lineCount = 20;
     const lineHeight = height / lineCount;
@@ -170,7 +179,7 @@ export class OverworldScene extends Phaser.Scene {
         i * lineHeight + lineHeight / 2,
         width,
         lineHeight,
-        0x1a1a1a
+        p.darkest
       );
       lines.push(line);
 
@@ -179,237 +188,327 @@ export class OverworldScene extends Phaser.Scene {
         x: width / 2,
         duration: 300,
         delay: i * 20,
-        ease: 'Power2',
+        ease: 'Linear', // Step-like feel
       });
     }
 
     // Transition to quiz after animation
     this.time.delayedCall(600, () => {
+      console.log('Battle transition complete, starting QuizScene...');
       this.scene.start(SCENES.QUIZ);
     });
   }
 
   drawMap() {
     const { width, height } = this.scale;
+
+    // Draw bright procedural background (no tilesets needed)
+    this.drawProceduralBackground();
+
+    // Draw map elements on top
+    this.drawNamsanTower(width - 60, 120);
+    this.drawHanRiver(width / 2, height / 2 - 30);
+    this.drawConvenienceStore(80, 180);
+    this.drawSubwayEntrance(width - 100, height - 180);
+    this.drawNeonSigns(150, 320);
+    this.drawProceduralBuildings();
+    this.drawProceduralTrees();
+  }
+
+  drawProceduralBackground() {
+    const { width, height } = this.scale;
+    const { COLORS } = GAME_CONFIG;
     const g = this.add.graphics();
+    const tileSize = 16;
 
-    // Ground tiles (simplified grid pattern)
-    g.fillStyle(0x2a2a2a);
-    g.fillRect(0, 0, width, height);
+    // Draw grass pattern - bright green with subtle variation
+    for (let y = 0; y < height; y += tileSize) {
+      for (let x = 0; x < width; x += tileSize) {
+        // Alternate between two shades for texture
+        const shade = ((x / tileSize) + (y / tileSize)) % 2 === 0;
+        g.fillStyle(shade ? COLORS.GRASS_LIGHT : 0x7ed87e);
+        g.fillRect(x, y, tileSize, tileSize);
 
-    // Grid pattern
-    g.lineStyle(1, 0x3a3a3a);
-    for (let x = 0; x < width; x += 32) {
-      g.lineBetween(x, 0, x, height);
+        // Add small grass detail marks
+        if (Math.random() > 0.7) {
+          g.fillStyle(COLORS.GRASS_DARK);
+          g.fillRect(x + 4, y + 8, 2, 4);
+          g.fillRect(x + 10, y + 6, 2, 4);
+        }
+      }
     }
-    for (let y = 0; y < height; y += 32) {
-      g.lineBetween(0, y, width, y);
-    }
 
-    // Draw map elements
-    this.drawNamsanTower(width - 60, 150);
-    this.drawHanRiver(width / 2, height / 2 - 50);
-    this.drawConvenienceStore(80, 200);
-    this.drawSubwayEntrance(width - 100, height - 200);
-    this.drawNeonSigns(150, 350);
-    this.drawBuildings();
+    // Draw paths - tan/brown crossing paths
+    this.drawProceduralPaths(g);
+  }
+
+  drawProceduralPaths(g) {
+    const { width, height } = this.scale;
+    const { COLORS } = GAME_CONFIG;
+    const pathWidth = 24;
+
+    // Horizontal main path
+    const pathY = height / 2 - pathWidth / 2;
+    g.fillStyle(COLORS.PATH);
+    g.fillRect(30, pathY, width - 60, pathWidth);
+
+    // Path border (darker)
+    g.fillStyle(0xb8956e);
+    g.fillRect(30, pathY, width - 60, 2);
+    g.fillRect(30, pathY + pathWidth - 2, width - 60, 2);
+
+    // Vertical crossing path
+    const pathX = width / 2 - pathWidth / 2;
+    g.fillStyle(COLORS.PATH);
+    g.fillRect(pathX, 70, pathWidth, height - 150);
+
+    // Path border
+    g.fillStyle(0xb8956e);
+    g.fillRect(pathX, 70, 2, height - 150);
+    g.fillRect(pathX + pathWidth - 2, 70, 2, height - 150);
+  }
+
+  drawProceduralTrees() {
+    const { width, height } = this.scale;
+    const { COLORS } = GAME_CONFIG;
+
+    // Tree positions around edges
+    const treePositions = [
+      { x: 25, y: 100 },
+      { x: 45, y: 200 },
+      { x: 280, y: 95 },
+      { x: 285, y: 195 },
+      { x: 20, y: height - 120 },
+      { x: 290, y: height - 115 },
+    ];
+
+    treePositions.forEach(pos => {
+      const g = this.add.graphics();
+
+      // Tree trunk (brown)
+      g.fillStyle(0x8b4513);
+      g.fillRect(pos.x + 10, pos.y + 20, 12, 20);
+
+      // Tree foliage (layered circles for Pokemon style)
+      g.fillStyle(COLORS.TREE_GREEN);
+      g.fillCircle(pos.x + 16, pos.y, 18);
+      g.fillCircle(pos.x + 8, pos.y + 10, 14);
+      g.fillCircle(pos.x + 24, pos.y + 10, 14);
+
+      // Highlight
+      g.fillStyle(0x32cd32);
+      g.fillCircle(pos.x + 12, pos.y - 5, 8);
+    });
+  }
+
+  drawProceduralBuildings() {
+    const { COLORS } = GAME_CONFIG;
+
+    // Building positions
+    const buildings = [
+      { x: 60, y: 70, w: 50, h: 40 },
+      { x: 230, y: 200, w: 60, h: 45 },
+    ];
+
+    buildings.forEach(b => {
+      const g = this.add.graphics();
+
+      // Building body (white/cream)
+      g.fillStyle(0xffffff);
+      g.fillRect(b.x, b.y, b.w, b.h);
+
+      // Roof (red like Pokemon)
+      g.fillStyle(COLORS.ROOF_RED);
+      g.fillTriangle(
+        b.x - 5, b.y,
+        b.x + b.w / 2, b.y - 20,
+        b.x + b.w + 5, b.y
+      );
+
+      // Door
+      g.fillStyle(0x8b4513);
+      g.fillRect(b.x + b.w / 2 - 8, b.y + b.h - 25, 16, 25);
+
+      // Windows
+      g.fillStyle(COLORS.WATER);
+      g.fillRect(b.x + 8, b.y + 10, 12, 12);
+      g.fillRect(b.x + b.w - 20, b.y + 10, 12, 12);
+
+      // Black border
+      g.lineStyle(2, 0x000000);
+      g.strokeRect(b.x, b.y, b.w, b.h);
+    });
   }
 
   drawNamsanTower(x, y) {
     const g = this.add.graphics();
 
-    // Tower base
-    g.fillStyle(0x6a6a6a);
+    // Tower base (gray concrete)
+    g.fillStyle(0x808080);
     g.fillRect(x - 15, y + 20, 30, 40);
 
-    // Tower body
-    g.fillStyle(0x8a8a8a);
+    // Tower body (white)
+    g.fillStyle(0xffffff);
     g.fillRect(x - 8, y - 40, 16, 60);
+    g.lineStyle(1, 0x000000);
+    g.strokeRect(x - 8, y - 40, 16, 60);
 
-    // Tower top
-    g.fillStyle(0xf0f0f0);
-    g.fillRect(x - 3, y - 70, 6, 30);
-
-    // Observation deck
-    g.fillStyle(0x6a6a6a);
+    // Tower top (red observation deck)
+    g.fillStyle(0xff6b6b);
     g.fillRect(x - 12, y - 20, 24, 15);
 
-    // Antenna
-    g.fillStyle(0xf0f0f0);
-    g.fillRect(x - 1, y - 85, 2, 15);
+    // Antenna (white with red tip)
+    g.fillStyle(0xffffff);
+    g.fillRect(x - 1, y - 70, 2, 30);
+    g.fillStyle(0xff0000);
+    g.fillRect(x - 2, y - 75, 4, 8);
 
     // Label
     this.add.text(x, y + 70, 'N Tower', {
       fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '6px',
-      color: '#6a6a6a',
+      fontSize: '8px',
+      color: '#000000',
     }).setOrigin(0.5);
   }
 
   drawHanRiver(x, y) {
+    const { width } = this.scale;
+    const { COLORS } = GAME_CONFIG;
     const g = this.add.graphics();
 
-    // River (wavy horizontal line)
-    g.fillStyle(0x4a4a4a);
-    g.fillRect(0, y, this.scale.width, 25);
+    // River - bright blue water
+    g.fillStyle(COLORS.WATER);
+    g.fillRect(0, y, width, 32);
 
-    // Wave pattern
-    g.fillStyle(0x5a5a5a);
-    for (let i = 0; i < this.scale.width; i += 20) {
-      g.fillRect(i, y + 5, 10, 3);
-      g.fillRect(i + 10, y + 15, 10, 3);
+    // Water wave pattern
+    g.fillStyle(0x6bb3d9);
+    for (let wx = 0; wx < width; wx += 20) {
+      g.fillRect(wx, y + 8, 10, 2);
+      g.fillRect(wx + 5, y + 20, 10, 2);
     }
 
     // Bridge
-    g.fillStyle(0x8a8a8a);
-    g.fillRect(x - 40, y - 5, 80, 35);
-    g.fillStyle(0x6a6a6a);
-    g.fillRect(x - 35, y + 5, 15, 15);
-    g.fillRect(x + 20, y + 5, 15, 15);
+    g.fillStyle(0xd2b48c);
+    g.fillRect(x - 45, y - 5, 90, 42);
+    g.lineStyle(2, 0x000000);
+    g.strokeRect(x - 45, y - 5, 90, 42);
+
+    // Bridge arches
+    g.fillStyle(0x8b4513);
+    g.fillRect(x - 35, y + 10, 20, 20);
+    g.fillRect(x + 15, y + 10, 20, 20);
   }
 
   drawConvenienceStore(x, y) {
     const g = this.add.graphics();
 
-    // Building
-    g.fillStyle(0x6a6a6a);
-    g.fillRect(x - 25, y - 20, 50, 40);
+    // Building - white with red accent
+    g.fillStyle(0xffffff);
+    g.fillRect(x - 30, y - 25, 60, 50);
+    g.lineStyle(2, 0x000000);
+    g.strokeRect(x - 30, y - 25, 60, 50);
 
-    // Sign
-    g.fillStyle(0xf0f0f0);
-    g.fillRect(x - 20, y - 18, 40, 12);
+    // Red stripe (CU branding)
+    g.fillStyle(0xff6b6b);
+    g.fillRect(x - 30, y - 25, 60, 12);
 
     // Door
-    g.fillStyle(0x3a3a3a);
-    g.fillRect(x - 8, y, 16, 20);
+    g.fillStyle(0x87ceeb);
+    g.fillRect(x - 8, y, 16, 25);
+    g.lineStyle(1, 0x000000);
+    g.strokeRect(x - 8, y, 16, 25);
 
     // Label
-    this.add.text(x, y - 12, 'CU', {
+    this.add.text(x, y - 17, 'CU', {
       fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '6px',
-      color: '#1a1a1a',
+      fontSize: '8px',
+      color: '#ffffff',
     }).setOrigin(0.5);
   }
 
   drawSubwayEntrance(x, y) {
     const g = this.add.graphics();
 
-    // Entrance structure
-    g.fillStyle(0x5a5a5a);
-    g.fillRect(x - 20, y - 15, 40, 30);
+    // Yellow entrance canopy (Seoul Metro style)
+    g.fillStyle(0xffd700);
+    g.fillRect(x - 25, y - 20, 50, 15);
+    g.lineStyle(2, 0x000000);
+    g.strokeRect(x - 25, y - 20, 50, 15);
 
-    // Stairs (going down)
-    g.fillStyle(0x3a3a3a);
-    g.fillRect(x - 15, y - 10, 30, 20);
+    // Stairs (gray)
+    g.fillStyle(0x808080);
+    g.fillRect(x - 18, y - 5, 36, 30);
 
     // Stair lines
-    g.lineStyle(1, 0x1a1a1a);
-    for (let i = 0; i < 5; i++) {
-      g.lineBetween(x - 15, y - 10 + i * 4, x + 15, y - 10 + i * 4);
+    g.lineStyle(1, 0xffffff);
+    for (let i = 0; i < 6; i++) {
+      g.lineBetween(x - 18, y - 5 + i * 5, x + 18, y - 5 + i * 5);
     }
 
-    // Railing
-    g.fillStyle(0x8a8a8a);
-    g.fillRect(x - 18, y - 15, 4, 25);
-    g.fillRect(x + 14, y - 15, 4, 25);
+    // Railing (blue)
+    g.fillStyle(0x4169e1);
+    g.fillRect(x - 22, y - 5, 4, 30);
+    g.fillRect(x + 18, y - 5, 4, 30);
 
     // Subway sign
-    this.add.text(x, y - 25, '지하철', {
+    this.add.text(x, y - 12, '지하철', {
       fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '6px',
-      color: '#8a8a8a',
+      fontSize: '7px',
+      color: '#000000',
     }).setOrigin(0.5);
   }
 
   drawNeonSigns(x, y) {
-    // Korean text signs (simulated neon)
-    const signs = ['PC방', '노래방', '치킨'];
-    signs.forEach((text, i) => {
-      const signX = x + i * 60;
-
-      const g = this.add.graphics();
-      g.fillStyle(0x4a4a4a);
-      g.fillRect(signX - 20, y - 10, 40, 20);
-      g.lineStyle(1, 0x8a8a8a);
-      g.strokeRect(signX - 20, y - 10, 40, 20);
-
-      this.add.text(signX, y, text, {
-        fontFamily: GAME_CONFIG.FONTS.MAIN,
-        fontSize: '7px',
-        color: '#cacaca',
-      }).setOrigin(0.5);
-    });
-  }
-
-  drawBuildings() {
-    const g = this.add.graphics();
-    const { width, height } = this.scale;
-
-    // Random buildings in background
-    const buildings = [
-      { x: 50, y: 100, w: 30, h: 50 },
-      { x: 280, y: 120, w: 40, h: 70 },
-      { x: 180, y: 450, w: 35, h: 45 },
-      { x: 300, y: 400, w: 25, h: 55 },
-    ];
-
-    buildings.forEach((b) => {
-      g.fillStyle(0x3a3a3a);
-      g.fillRect(b.x, b.y, b.w, b.h);
-
-      // Windows
-      g.fillStyle(0x5a5a5a);
-      for (let wy = b.y + 5; wy < b.y + b.h - 5; wy += 10) {
-        for (let wx = b.x + 5; wx < b.x + b.w - 5; wx += 8) {
-          g.fillRect(wx, wy, 4, 6);
-        }
-      }
-    });
+    // Skip neon signs - they're below visible area (y=320 is off screen)
+    // This function was drawing off-screen elements
   }
 
   createUI() {
     const { width } = this.scale;
-    const { FONTS, TEXT_SIZES, COLORS } = GAME_CONFIG;
+    const { FONTS, TEXT_SIZES } = GAME_CONFIG;
 
-    // Garlic counter
-    const container = this.add.container(width - 60, 30);
+    // Garlic counter - white box with black border (Pokemon style)
+    const container = this.add.container(width - 55, 25);
 
     const bg = this.add.graphics();
-    bg.fillStyle(COLORS.BLACK, 0.9);
-    bg.fillRect(-45, -18, 90, 36);
-    bg.lineStyle(2, COLORS.WHITE);
-    bg.strokeRect(-45, -18, 90, 36);
+    bg.fillStyle(0xffffff);
+    bg.fillRect(-45, -15, 90, 30);
+    bg.lineStyle(2, 0x000000);
+    bg.strokeRect(-45, -15, 90, 30);
     container.add(bg);
 
-    // Garlic icon
+    // Garlic icon (yellow/white garlic)
     const garlicIcon = this.add.graphics();
-    garlicIcon.fillStyle(0xf0f0f0);
-    garlicIcon.fillCircle(-28, 0, 10);
-    garlicIcon.fillCircle(-33, 5, 6);
-    garlicIcon.fillCircle(-23, 5, 6);
+    garlicIcon.fillStyle(0xfffacd);
+    garlicIcon.fillCircle(-25, 0, 8);
+    garlicIcon.fillCircle(-30, 4, 5);
+    garlicIcon.fillCircle(-20, 4, 5);
+    garlicIcon.lineStyle(1, 0x000000);
+    garlicIcon.strokeCircle(-25, 0, 8);
     container.add(garlicIcon);
 
     // Counter text
     this.garlicCounterText = this.add.text(10, 0, `${gameState.getGarlics()}/5`, {
       fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.MEDIUM + 'px',
-      color: '#f0f0f0',
+      fontSize: TEXT_SIZES.SMALL + 'px',
+      color: '#000000',
     }).setOrigin(0.5);
     container.add(this.garlicCounterText);
   }
 
   createVirtualDPad() {
     const { width, height } = this.scale;
-    const { COLORS } = GAME_CONFIG;
 
     const dpadX = 70;
-    const dpadY = height - 70;
-    const buttonSize = 40;
+    const dpadY = height - 65;
+    const buttonSize = 36;
 
-    // D-pad background
+    // D-pad background (white circle)
     const bg = this.add.graphics();
-    bg.fillStyle(COLORS.DARK_GRAY, 0.5);
-    bg.fillCircle(dpadX, dpadY, 60);
+    bg.fillStyle(0xffffff, 0.9);
+    bg.fillCircle(dpadX, dpadY, 55);
+    bg.lineStyle(2, 0x000000);
+    bg.strokeCircle(dpadX, dpadY, 55);
 
     // Direction buttons
     const directions = [
@@ -423,39 +522,46 @@ export class OverworldScene extends Phaser.Scene {
       const btn = this.add.rectangle(
         dpadX + x,
         dpadY + y,
-        buttonSize - 5,
-        buttonSize - 5,
-        COLORS.MID_GRAY,
-        0.8
+        buttonSize - 4,
+        buttonSize - 4,
+        0xe0e0e0,
+        1
       ).setInteractive();
+      btn.setStrokeStyle(1, 0x000000);
 
       // Arrow symbols
       const arrows = { up: '▲', down: '▼', left: '◀', right: '▶' };
       this.add.text(dpadX + x, dpadY + y, arrows[dir], {
         fontFamily: GAME_CONFIG.FONTS.MAIN,
-        fontSize: '12px',
-        color: '#1a1a1a',
+        fontSize: '10px',
+        color: '#000000',
       }).setOrigin(0.5);
 
       btn.on('pointerdown', () => {
-        btn.setFillStyle(COLORS.WHITE, 1);
+        btn.setFillStyle(0xaaaaaa, 1);
         this.moveTiger(dir);
       });
 
       btn.on('pointerup', () => {
-        btn.setFillStyle(COLORS.MID_GRAY, 0.8);
+        btn.setFillStyle(0xe0e0e0, 1);
       });
 
       btn.on('pointerout', () => {
-        btn.setFillStyle(COLORS.MID_GRAY, 0.8);
+        btn.setFillStyle(0xe0e0e0, 1);
       });
     });
 
-    // Hint text
+    // Hint text box
+    const hintBg = this.add.graphics();
+    hintBg.fillStyle(0xffffff, 0.9);
+    hintBg.fillRect(width - 120, height - 70, 100, 40);
+    hintBg.lineStyle(1, 0x000000);
+    hintBg.strokeRect(width - 120, height - 70, 100, 40);
+
     this.add.text(width - 70, height - 50, 'Walk around\nto find NPCs', {
       fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '8px',
-      color: '#6a6a6a',
+      fontSize: '7px',
+      color: '#000000',
       align: 'center',
     }).setOrigin(0.5);
   }

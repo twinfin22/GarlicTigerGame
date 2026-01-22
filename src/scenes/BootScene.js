@@ -11,7 +11,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    // Nothing to preload in boot scene
+    // No external assets needed - using procedural graphics
   }
 
   create() {

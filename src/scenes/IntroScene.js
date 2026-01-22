@@ -5,6 +5,7 @@ import { GAME_CONFIG, SCENES } from '../config.js';
 import { DialogueBox } from '../objects/DialogueBox.js';
 import { audioManager } from '../utils/AudioManager.js';
 import { gameState } from '../utils/StateManager.js';
+import { getPalette, drawSprite, SPRITES } from '../utils/GBGraphics.js';
 
 export class IntroScene extends Phaser.Scene {
   constructor() {
@@ -22,14 +23,16 @@ export class IntroScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
-    const { COLORS, FONTS, TEXT_SIZES } = GAME_CONFIG;
+    const { FONTS, TEXT_SIZES } = GAME_CONFIG;
+    const p = getPalette();
+    this.palette = p;
 
     // Reset state
     gameState.reset();
     this.dialogueIndex = 0;
 
-    // Background
-    this.cameras.main.setBackgroundColor(COLORS.BLACK);
+    // Background - use palette
+    this.cameras.main.setBackgroundColor(p.darkest);
     this.cameras.main.fadeIn(500);
 
     // Draw Hanok gate
@@ -100,10 +103,13 @@ export class IntroScene extends Phaser.Scene {
 
     // Show transition text
     const { width, height } = this.scale;
+    const p = this.palette;
+    const lightestHex = '#' + p.lightest.toString(16).padStart(6, '0');
+
     const transitionText = this.add.text(width / 2, height / 2, 'The Journey Begins...', {
       fontFamily: GAME_CONFIG.FONTS.MAIN,
       fontSize: GAME_CONFIG.TEXT_SIZES.MEDIUM + 'px',
-      color: '#f0f0f0',
+      color: lightestHex,
     }).setOrigin(0.5).setAlpha(0);
 
     this.tweens.add({
@@ -113,7 +119,7 @@ export class IntroScene extends Phaser.Scene {
       yoyo: true,
       hold: 1000,
       onComplete: () => {
-        this.cameras.main.fadeOut(500, 26, 26, 26);
+        this.cameras.main.fadeOut(500);
         this.cameras.main.once('camerafadeoutcomplete', () => {
           this.scene.start(SCENES.OVERWORLD);
         });
@@ -122,28 +128,30 @@ export class IntroScene extends Phaser.Scene {
   }
 
   drawHanokGate(x, y) {
+    const p = this.palette;
     const g = this.add.graphics();
+    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
 
     // Main gate structure
-    g.fillStyle(0x4a4a4a);
+    g.fillStyle(p.dark);
     g.fillRect(x - 100, y, 200, 120);
 
     // Gate opening (dark)
-    g.fillStyle(0x1a1a1a);
+    g.fillStyle(p.darkest);
     g.fillRect(x - 40, y + 40, 80, 80);
 
     // Gate doors (closed)
-    g.fillStyle(0x6a6a6a);
+    g.fillStyle(p.light);
     g.fillRect(x - 38, y + 42, 36, 76);
     g.fillRect(x + 2, y + 42, 36, 76);
 
     // Door details
-    g.fillStyle(0x3a3a3a);
+    g.fillStyle(p.dark);
     g.fillRect(x - 30, y + 50, 20, 30);
     g.fillRect(x + 10, y + 50, 20, 30);
 
     // Roof - traditional Korean curved roof
-    g.fillStyle(0x2a2a2a);
+    g.fillStyle(p.darkest);
     // Main roof
     g.fillRect(x - 120, y - 20, 240, 25);
     // Curved edges (simplified)
@@ -151,67 +159,49 @@ export class IntroScene extends Phaser.Scene {
     g.fillTriangle(x + 120, y - 20, x + 140, y + 5, x + 100, y + 5);
 
     // Roof tiles pattern
-    g.fillStyle(0x1a1a1a);
+    g.fillStyle(p.dark);
     for (let i = -110; i < 110; i += 20) {
       g.fillRect(x + i, y - 18, 2, 20);
     }
 
     // Second roof tier
-    g.fillStyle(0x3a3a3a);
+    g.fillStyle(p.dark);
     g.fillRect(x - 90, y - 40, 180, 22);
     g.fillTriangle(x - 90, y - 40, x - 105, y - 18, x - 75, y - 18);
     g.fillTriangle(x + 90, y - 40, x + 105, y - 18, x + 75, y - 18);
 
     // Pillars
-    g.fillStyle(0x8a8a8a);
+    g.fillStyle(p.light);
     g.fillRect(x - 95, y, 15, 120);
     g.fillRect(x + 80, y, 15, 120);
 
     // Sign above gate
-    g.fillStyle(0xf0f0f0);
+    g.fillStyle(p.lightest);
     g.fillRect(x - 50, y + 10, 100, 25);
-    g.lineStyle(2, 0x4a4a4a);
+    g.lineStyle(2, p.dark);
     g.strokeRect(x - 50, y + 10, 100, 25);
 
     // Sign text
     this.add.text(x, y + 22, 'K-DIGITAL', {
       fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '8px',
-      color: '#1a1a1a',
+      fontSize: '10px',
+      color: darkestHex,
     }).setOrigin(0.5);
   }
 
   drawGuard(x, y, mirrored = false) {
+    const p = this.palette;
     const g = this.add.graphics();
-    const dir = mirrored ? -1 : 1;
 
-    // Body (robe)
-    g.fillStyle(0x6a6a6a);
-    g.fillRect(x - 15, y - 20, 30, 50);
-
-    // Robe details
-    g.fillStyle(0x4a4a4a);
-    g.fillRect(x - 5, y - 15, 10, 45);
-
-    // Head
-    g.fillStyle(0xcacaca);
-    g.fillCircle(x, y - 35, 12);
-
-    // Gat (traditional hat)
-    g.fillStyle(0x1a1a1a);
-    g.fillRect(x - 20, y - 50, 40, 8);
-    g.fillRect(x - 8, y - 65, 16, 18);
-
-    // Eyes
-    g.fillStyle(0x1a1a1a);
-    g.fillRect(x - 6, y - 38, 3, 3);
-    g.fillRect(x + 3, y - 38, 3, 3);
+    // Draw guard sprite instead of procedural
+    drawSprite(g, x - 16, y - 40, SPRITES.GUARD, 16, 2);
 
     // Spear
-    g.fillStyle(0x8a8a8a);
+    const dir = mirrored ? -1 : 1;
+    g.fillStyle(p.light);
     g.fillRect(x + (25 * dir), y - 60, 4, 90);
     // Spear tip
-    g.fillStyle(0xf0f0f0);
+    g.fillStyle(p.lightest);
     g.fillTriangle(
       x + (27 * dir), y - 60,
       x + (23 * dir), y - 75,
@@ -222,47 +212,29 @@ export class IntroScene extends Phaser.Scene {
   drawSmallTiger(x, y) {
     const g = this.add.graphics();
 
-    // Body
-    g.fillStyle(0xcacaca);
-    g.fillRect(x - 12, y - 15, 24, 30);
-
-    // Stripes
-    g.fillStyle(0x4a4a4a);
-    g.fillRect(x - 8, y - 10, 4, 2);
-    g.fillRect(x + 4, y - 10, 4, 2);
-    g.fillRect(x - 5, y, 5, 2);
-
-    // Head
-    g.fillStyle(0xcacaca);
-    g.fillRect(x - 10, y - 30, 20, 18);
-
-    // Ears
-    g.fillTriangle(x - 10, y - 30, x - 10, y - 40, x - 4, y - 30);
-    g.fillTriangle(x + 10, y - 30, x + 10, y - 40, x + 4, y - 30);
-
-    // Eyes
-    g.fillStyle(0x1a1a1a);
-    g.fillRect(x - 6, y - 25, 4, 4);
-    g.fillRect(x + 2, y - 25, 4, 4);
+    // Draw tiger sprite
+    drawSprite(g, x - 16, y - 32, SPRITES.TIGER_FRONT, 16, 2);
   }
 
   createGarlicCounter() {
     const { width } = this.scale;
-    const { FONTS, TEXT_SIZES, COLORS } = GAME_CONFIG;
+    const { FONTS, TEXT_SIZES } = GAME_CONFIG;
+    const p = this.palette;
+    const lightestHex = '#' + p.lightest.toString(16).padStart(6, '0');
 
     const container = this.add.container(width - 60, 30);
 
     // Background
     const bg = this.add.graphics();
-    bg.fillStyle(COLORS.BLACK, 0.8);
+    bg.fillStyle(p.darkest, 0.8);
     bg.fillRect(-40, -15, 80, 30);
-    bg.lineStyle(2, COLORS.WHITE);
+    bg.lineStyle(2, p.lightest);
     bg.strokeRect(-40, -15, 80, 30);
     container.add(bg);
 
-    // Garlic icon (small)
+    // Garlic icon using palette
     const garlicIcon = this.add.graphics();
-    garlicIcon.fillStyle(0xf0f0f0);
+    garlicIcon.fillStyle(p.lightest);
     garlicIcon.fillCircle(-25, 0, 8);
     container.add(garlicIcon);
 
@@ -270,7 +242,7 @@ export class IntroScene extends Phaser.Scene {
     const counterText = this.add.text(5, 0, '0/5', {
       fontFamily: FONTS.MAIN,
       fontSize: TEXT_SIZES.SMALL + 'px',
-      color: '#f0f0f0',
+      color: lightestHex,
     }).setOrigin(0.5);
     container.add(counterText);
   }

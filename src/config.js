@@ -5,22 +5,28 @@ export const GAME_CONFIG = {
   WIDTH: 320,
   HEIGHT: 288, // True Game Boy ratio scaled 2x
 
-  // Authentic Game Boy 4-color palette (DMG - Dot Matrix Game)
-  // Original green-ish tint, but we'll use clean grayscale
+  // Pokemon Red/Blue style palette - bright and colorful
   COLORS: {
-    DARKEST: 0x0f380f,   // Black (GB: darkest green)
-    DARK: 0x306230,      // Dark gray (GB: dark green)
-    LIGHT: 0x8bac0f,     // Light gray (GB: light green)
-    LIGHTEST: 0x9bbc0f,  // White (GB: lightest green)
-    // Monochrome alternative (Game Boy Pocket style)
-    BLACK: 0x202020,
-    DARK_GRAY: 0x606060,
-    LIGHT_GRAY: 0xa0a0a0,
-    WHITE: 0xe0e0e0,
+    DARKEST: 0x000000,   // Pure black (borders/text)
+    DARK: 0x555555,      // Dark gray (secondary)
+    LIGHT: 0xaaaaaa,     // Light gray (disabled/shadow)
+    LIGHTEST: 0xffffff,  // Pure white (backgrounds)
+    // Pokemon-style environment colors
+    GRASS_LIGHT: 0x90ee90,  // Light green grass
+    GRASS_DARK: 0x228b22,   // Darker grass accent
+    PATH: 0xd2b48c,         // Tan/brown path
+    WATER: 0x87ceeb,        // Sky blue water
+    TREE_GREEN: 0x228b22,   // Forest green
+    ROOF_RED: 0xcd5c5c,     // Indian red for roofs
+    // Legacy references (kept for compatibility)
+    BLACK: 0x000000,
+    DARK_GRAY: 0x555555,
+    LIGHT_GRAY: 0xaaaaaa,
+    WHITE: 0xffffff,
   },
 
-  // Use Game Boy green palette for authentic feel
-  USE_GREEN_PALETTE: true,
+  // Use Pokemon Red/Blue clean palette
+  USE_GREEN_PALETTE: false,
 
   // Typography
   FONTS: {
@@ -28,13 +34,13 @@ export const GAME_CONFIG = {
     FALLBACK: 'monospace',
   },
 
-  // Text sizes
+  // Text sizes - LARGER for readability
   TEXT_SIZES: {
-    TINY: 8,
-    SMALL: 10,
-    MEDIUM: 12,
-    LARGE: 16,
-    TITLE: 20,
+    TINY: 10,
+    SMALL: 12,
+    MEDIUM: 14,
+    LARGE: 18,
+    TITLE: 24,
   },
 
   // Game settings

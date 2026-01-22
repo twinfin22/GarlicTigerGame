@@ -58,65 +58,85 @@ class AudioManager {
     });
   }
 
-  // Sound effects
+  // Sound effects - Pokemon Gen 1 style
+
   playWalk() {
-    this.playTone(150, 0.05, 'square', 0.1);
+    // Lighter footstep sound
+    this.playTone(200, 0.03, 'square', 0.05);
   }
 
   playSelect() {
-    this.playTone(440, 0.1, 'square', 0.2);
+    // Pokemon style: punchy menu blip
+    this.playTone(800, 0.06, 'square', 0.15);
   }
 
   playConfirm() {
-    this.playArpeggio([523, 659, 784], 0.08);
+    // Pokemon "A button" sound - quick ascending two-note
+    const notes = [600, 800];
+    notes.forEach((freq, i) => {
+      setTimeout(() => this.playTone(freq, 0.08, 'square', 0.2), i * 60);
+    });
   }
 
   playCorrect() {
-    // Happy ascending arpeggio
-    this.playArpeggio([523, 659, 784, 1047], 0.12);
+    // Pokemon victory jingle - triumphant ascending
+    const notes = [523, 659, 784, 1047];
+    notes.forEach((freq, i) => {
+      setTimeout(() => this.playTone(freq, 0.12, 'square', 0.2), i * 100);
+    });
   }
 
   playWrong() {
-    // Sad descending sound
-    this.playArpeggio([300, 250, 200], 0.15, 'sawtooth');
+    // Pokemon error/bump - low descending buzz
+    const notes = [200, 150];
+    notes.forEach((freq, i) => {
+      setTimeout(() => this.playTone(freq, 0.15, 'square', 0.25), i * 100);
+    });
   }
 
   playTransform() {
-    // Magical transformation sound
-    const notes = [262, 330, 392, 523, 659, 784, 1047];
+    // Magical transformation - Pokemon level up style
+    const notes = [392, 523, 659, 784, 880, 1047];
     notes.forEach((freq, index) => {
       setTimeout(() => {
-        this.playTone(freq, 0.3, 'sine', 0.15);
-      }, index * 100);
+        this.playTone(freq, 0.15, 'square', 0.15);
+      }, index * 80);
     });
   }
 
   playVictory() {
-    // Triumphant fanfare
+    // Pokemon victory fanfare
     const melody = [523, 523, 523, 698, 880, 784, 698, 880, 1047];
-    const durations = [0.15, 0.15, 0.15, 0.3, 0.15, 0.15, 0.15, 0.15, 0.5];
+    const durations = [0.1, 0.1, 0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.3];
     let time = 0;
 
     melody.forEach((freq, index) => {
       setTimeout(() => {
         this.playTone(freq, durations[index], 'square', 0.2);
       }, time);
-      time += durations[index] * 800;
+      time += durations[index] * 700;
     });
   }
 
   playGameOver() {
-    // Descending sad melody
-    this.playArpeggio([400, 350, 300, 250, 200], 0.2, 'triangle');
+    // Pokemon-style sad descending
+    const notes = [392, 330, 262, 196];
+    notes.forEach((freq, i) => {
+      setTimeout(() => this.playTone(freq, 0.2, 'square', 0.2), i * 150);
+    });
   }
 
   playTypewriter() {
-    this.playTone(800 + Math.random() * 200, 0.03, 'square', 0.05);
+    // Pokemon text blip - quick high-pitched chirp
+    this.playTone(1000, 0.02, 'square', 0.08);
   }
 
   playGarlicCollect() {
-    // Satisfying collect sound
-    this.playArpeggio([440, 554, 659, 880], 0.08);
+    // Pokemon item get - ascending chirp
+    const notes = [523, 659, 784, 1047];
+    notes.forEach((freq, i) => {
+      setTimeout(() => this.playTone(freq, 0.08, 'square', 0.15), i * 80);
+    });
   }
 }
 

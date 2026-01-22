@@ -43,22 +43,22 @@ export class DialogueBox {
     this.container.add(this.background);
 
     // Name tag (Pokemon style - sits on top border)
-    this.nameTag = this.scene.add.text(8, -6, '', {
+    this.nameTag = this.scene.add.text(8, -8, '', {
       fontFamily: 'Press Start 2P',
-      fontSize: '8px',
+      fontSize: '10px',
       color: darkHex,
       backgroundColor: lightHex,
       padding: { x: 4, y: 2 },
     });
     this.container.add(this.nameTag);
 
-    // Main text content
-    this.textContent = this.scene.add.text(12, 10, '', {
+    // Main text content - larger for readability
+    this.textContent = this.scene.add.text(10, 12, '', {
       fontFamily: 'Press Start 2P',
-      fontSize: '8px',
+      fontSize: '10px',
       color: darkHex,
-      wordWrap: { width: this.width - 24 },
-      lineSpacing: 6,
+      wordWrap: { width: this.width - 20 },
+      lineSpacing: 8,
     });
     this.container.add(this.textContent);
 
@@ -90,38 +90,13 @@ export class DialogueBox {
 
     this.background.clear();
 
-    // Outer shadow
-    this.background.fillStyle(p.dark);
-    this.background.fillRect(4, 4, w, h);
-
-    // Main white fill
+    // White fill
     this.background.fillStyle(p.lightest);
     this.background.fillRect(0, 0, w, h);
 
-    // Outer border (2px thick)
-    this.background.fillStyle(p.darkest);
-    // Top
-    this.background.fillRect(0, 0, w, 3);
-    // Bottom
-    this.background.fillRect(0, h - 3, w, 3);
-    // Left
-    this.background.fillRect(0, 0, 3, h);
-    // Right
-    this.background.fillRect(w - 3, 0, 3, h);
-
-    // Inner border (light color for 3D effect)
-    this.background.fillStyle(p.light);
-    // Top inner
-    this.background.fillRect(3, 3, w - 6, 2);
-    // Left inner
-    this.background.fillRect(3, 3, 2, h - 6);
-
-    // Corner cutouts for rounded look
-    this.background.fillStyle(p.lightest);
-    this.background.fillRect(0, 0, 3, 3);
-    this.background.fillRect(w - 3, 0, 3, 3);
-    this.background.fillRect(0, h - 3, 3, 3);
-    this.background.fillRect(w - 3, h - 3, 3, 3);
+    // Black 2px border (clean Pokemon style)
+    this.background.lineStyle(2, p.darkest);
+    this.background.strokeRect(1, 1, w - 2, h - 2);
   }
 
   drawIndicator() {

@@ -2,6 +2,7 @@
 
 import { GAME_CONFIG } from '../config.js';
 import { gameState } from '../utils/StateManager.js';
+import { getPalette, drawSprite, SPRITES } from '../utils/GBGraphics.js';
 
 export class Tiger {
   constructor(scene, x, y) {
@@ -14,6 +15,8 @@ export class Tiger {
     this.targetX = x;
     this.targetY = y;
     this.direction = 'down';
+    this.walkFrame = 0;
+    this.stepCount = 0;
 
     this.create();
   }
@@ -32,67 +35,88 @@ export class Tiger {
 
     const stage = gameState.getTransformationStage();
     const g = this.scene.add.graphics();
+    const p = getPalette();
 
-    // Base colors
-    const bodyColor = stage >= 4 ? 0x2a2a2a : 0xcacaca; // Black hair at stage 4+
-    const stripeColor = 0x4a4a4a;
+    // Select sprite based on direction and walk frame
+    let spriteData;
+    const walkFrame = this.walkFrame || 0;
 
-    // Body dimensions change with stage
-    const bodyHeight = 20 + (stage >= 2 ? 8 : 0); // Elongates at stage 2
-    const bodyWidth = 16;
-
-    // Draw body
-    g.fillStyle(stage >= 1 ? 0xf0f0f0 : bodyColor); // Loses fur (becomes lighter) at stage 1
-    g.fillRect(-bodyWidth / 2, -bodyHeight / 2, bodyWidth, bodyHeight);
-
-    // Draw stripes (only if fur still present - stage 0)
-    if (stage < 1) {
-      g.fillStyle(stripeColor);
-      g.fillRect(-bodyWidth / 2 + 2, -bodyHeight / 2 + 4, 3, 2);
-      g.fillRect(-bodyWidth / 2 + 8, -bodyHeight / 2 + 4, 3, 2);
-      g.fillRect(-bodyWidth / 2 + 4, -bodyHeight / 2 + 10, 4, 2);
+    switch (this.direction) {
+      case 'up':
+        spriteData = SPRITES.TIGER_BACK;
+        break;
+      case 'left':
+      case 'right':
+        spriteData = SPRITES.TIGER_SIDE;
+        break;
+      case 'down':
+      default:
+        // Alternate between walk frames for animation
+        spriteData = walkFrame === 0 ? SPRITES.TIGER_FRONT : SPRITES.TIGER_FRONT_WALK1;
+        break;
     }
 
-    // Draw head
-    const headColor = stage >= 4 ? 0x2a2a2a : bodyColor;
-    g.fillStyle(headColor);
-    g.fillRect(-8, -bodyHeight / 2 - 12, 16, 12);
+    // Draw the tiger sprite at 2x scale (16x16 * 2 = 32x32)
+    const scale = 2;
+    const offsetX = -16; // Center the 32px wide sprite
+    const offsetY = -16; // Center the 32px tall sprite
 
-    // Eyes
-    g.fillStyle(stage >= 4 ? 0x1a1a1a : 0x1a1a1a);
-    g.fillRect(-5, -bodyHeight / 2 - 8, 3, 3);
-    g.fillRect(2, -bodyHeight / 2 - 8, 3, 3);
-
-    // Ears
-    g.fillStyle(headColor);
-    g.fillTriangle(-8, -bodyHeight / 2 - 12, -8, -bodyHeight / 2 - 18, -3, -bodyHeight / 2 - 12);
-    g.fillTriangle(8, -bodyHeight / 2 - 12, 8, -bodyHeight / 2 - 18, 3, -bodyHeight / 2 - 12);
-
-    // Stage 3: Speech bubble showing pronunciation change
-    if (stage >= 3) {
-      g.fillStyle(0xf0f0f0);
-      g.fillRect(10, -bodyHeight / 2 - 20, 20, 12);
-      g.fillTriangle(10, -bodyHeight / 2 - 14, 10, -bodyHeight / 2 - 8, 6, -bodyHeight / 2 - 11);
+    // Apply transformation effects based on stage
+    if (stage >= 4) {
+      // Stage 4+: Black hair - draw with darker palette override
+      this.drawTransformedSprite(g, offsetX, offsetY, spriteData, 16, scale, stage);
+    } else {
+      // Normal tiger sprite
+      drawSprite(g, offsetX, offsetY, spriteData, 16, scale);
     }
 
-    // Stage 5: Show bowing capability (slightly bent)
-    if (stage >= 5) {
-      // Add small bow indicator
-      g.fillStyle(0x8a8a8a);
-      g.fillRect(-2, bodyHeight / 2, 4, 3);
+    // Flip sprite horizontally for left direction
+    if (this.direction === 'left') {
+      g.setScale(-1, 1);
     }
 
     this.sprite.add(g);
 
-    // Add stage 3 text if applicable
+    // Stage 3+: Speech bubble showing pronunciation change
     if (stage >= 3) {
-      const bubbleText = this.scene.add.text(12, -bodyHeight / 2 - 18, 'TH?', {
+      const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
+      const lightestHex = '#' + p.lightest.toString(16).padStart(6, '0');
+
+      const bubble = this.scene.add.graphics();
+      bubble.fillStyle(p.lightest);
+      bubble.fillRect(12, -24, 20, 12);
+      bubble.fillTriangle(12, -18, 12, -12, 8, -15);
+      bubble.lineStyle(1, p.darkest);
+      bubble.strokeRect(12, -24, 20, 12);
+      this.sprite.add(bubble);
+
+      const bubbleText = this.scene.add.text(14, -22, 'TH?', {
         fontFamily: GAME_CONFIG.FONTS.MAIN,
         fontSize: '6px',
-        color: '#1a1a1a',
+        color: darkestHex,
       });
       this.sprite.add(bubbleText);
     }
+  }
+
+  drawTransformedSprite(graphics, x, y, spriteData, width, scale, stage) {
+    const p = getPalette();
+    // Modified palette for transformation stages
+    const colors = [
+      p.darkest,
+      stage >= 4 ? p.darkest : p.dark, // Black hair at stage 4+
+      stage >= 1 ? p.lightest : p.light, // Loses fur at stage 1
+      p.lightest,
+    ];
+
+    spriteData.forEach((colorIdx, i) => {
+      if (colorIdx >= 0) {
+        const px = (i % width) * scale;
+        const py = Math.floor(i / width) * scale;
+        graphics.fillStyle(colors[colorIdx]);
+        graphics.fillRect(x + px, y + py, scale, scale);
+      }
+    });
   }
 
   setPosition(x, y) {
@@ -102,9 +126,23 @@ export class Tiger {
   }
 
   moveTo(targetX, targetY) {
+    // Determine direction based on movement
+    const dx = targetX - this.x;
+    const dy = targetY - this.y;
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+      this.direction = dx > 0 ? 'right' : 'left';
+    } else {
+      this.direction = dy > 0 ? 'down' : 'up';
+    }
+
     this.targetX = targetX;
     this.targetY = targetY;
     this.isMoving = true;
+
+    // Toggle walk frame for animation
+    this.walkFrame = (this.walkFrame + 1) % 2;
+    this.updateSprite();
   }
 
   moveInDirection(direction) {

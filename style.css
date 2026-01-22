@@ -9,87 +9,59 @@
 }
 
 :root {
-  /* Authentic Game Boy DMG palette */
-  --gb-darkest: #0f380f;
-  --gb-dark: #306230;
-  --gb-light: #8bac0f;
-  --gb-lightest: #9bbc0f;
+  /* Pokemon Red/Blue clean palette */
+  --gb-darkest: #000000;
+  --gb-dark: #555555;
+  --gb-light: #aaaaaa;
+  --gb-lightest: #ffffff;
 
-  /* Game Boy shell color */
-  --gb-shell: #8b8b7a;
-  --gb-shell-dark: #6b6b5a;
-  --gb-shell-light: #ababaa;
+  /* Clean shell colors */
+  --gb-shell: #c0c0c0;
+  --gb-shell-dark: #808080;
+  --gb-shell-light: #e0e0e0;
 
   /* Screen bezel */
-  --gb-bezel: #4a4a4a;
-  --gb-screen-border: #2a2a2a;
+  --gb-bezel: #808080;
+  --gb-screen-border: #000000;
 }
 
 html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  /* Clean white background - Pokemon Red/Blue style */
+  background: #ffffff;
   font-family: 'Press Start 2P', monospace;
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
-/* Game Boy shell frame */
+/* Game container - minimal clean frame */
 #game-container {
   position: relative;
-  background: var(--gb-shell);
-  padding: 20px;
-  border-radius: 10px 10px 30px 30px;
-  box-shadow:
-    inset 2px 2px 0 var(--gb-shell-light),
-    inset -2px -2px 0 var(--gb-shell-dark),
-    0 10px 30px rgba(0,0,0,0.5);
+  background: #ffffff;
+  padding: 4px;
 }
 
-/* Screen bezel */
+/* No bezel - clean Pokemon style */
 #game-container::before {
-  content: '';
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  right: 10px;
-  bottom: 60px;
-  background: var(--gb-bezel);
-  border-radius: 5px;
-  box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+  display: none;
 }
 
-/* Screen area */
+/* Screen area - clean Pokemon style */
 #game-container canvas {
   position: relative;
   z-index: 1;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  border: 4px solid var(--gb-screen-border);
-  border-radius: 3px;
-  box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
+  -ms-interpolation-mode: nearest-neighbor;
+  border: 2px solid #000000;
 }
 
-/* Scanline overlay for CRT effect */
+/* No scanline overlay for clean Pokemon look */
 #game-container::after {
-  content: '';
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  right: 10px;
-  bottom: 60px;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.1) 2px,
-    rgba(0, 0, 0, 0.1) 4px
-  );
-  pointer-events: none;
-  z-index: 2;
-  border-radius: 5px;
+  display: none;
 }
 
 /* "DOT MATRIX WITH STEREO SOUND" label area */
@@ -163,48 +135,19 @@ html, body {
 /* Mobile adjustments */
 @media (max-width: 400px) {
   #game-container {
-    padding: 10px;
-    border-radius: 5px 5px 15px 15px;
-  }
-
-  #game-container::before {
-    top: 5px;
-    left: 5px;
-    right: 5px;
-    bottom: 30px;
-  }
-
-  #game-container::after {
-    top: 5px;
-    left: 5px;
-    right: 5px;
-    bottom: 30px;
+    padding: 2px;
   }
 }
 
-/* Screen glow effect */
-@keyframes screen-glow {
-  0%, 100% {
-    filter: brightness(1);
-  }
-  50% {
-    filter: brightness(1.02);
-  }
-}
+/* No filters - clean pixel art */
 
-#game-container canvas {
-  animation: screen-glow 4s ease-in-out infinite;
-}
-
-/* Power LED indicator */
+/* Power LED indicator - pixel style */
 .power-led {
   position: absolute;
   top: 15px;
   left: 20px;
   width: 6px;
   height: 6px;
-  background: #cc3333;
-  border-radius: 50%;
-  box-shadow: 0 0 5px #ff0000;
+  background: #ff0000;
   z-index: 3;
 }

@@ -1,192 +1,331 @@
-// QuizScene - NPC quiz encounters
+// QuizScene - Pokemon-style NPC quiz encounters
 
 import Phaser from 'phaser';
 import { GAME_CONFIG, SCENES } from '../config.js';
-import { DialogueBox } from '../objects/DialogueBox.js';
 import { audioManager } from '../utils/AudioManager.js';
 import { gameState } from '../utils/StateManager.js';
+import { getPalette, drawSprite, SPRITES } from '../utils/GBGraphics.js';
 import quizData from '../data/quizData.json';
 
 export class QuizScene extends Phaser.Scene {
   constructor() {
     super({ key: SCENES.QUIZ });
-    this.currentQuiz = null;
-    this.dialogueBox = null;
-    this.choiceButtons = [];
-    this.npcSprite = null;
-    this.phase = 'dialogue'; // 'dialogue', 'choices', 'result'
   }
 
   create() {
-    const { width, height } = this.scale;
-    const { COLORS, FONTS, TEXT_SIZES } = GAME_CONFIG;
+    // Reset state
+    this.choiceButtons = [];
+    this.phase = 'dialogue';
+    this.dialogueText = null;
+    this.continueIndicator = null;
+    this.selectedChoice = 0;
 
-    // Get current quiz
+    // Clean up listeners
+    this.input.removeAllListeners();
+    if (this.input.keyboard) {
+      this.input.keyboard.removeAllListeners();
+    }
+
+    const { width, height } = this.scale;
+    const p = getPalette();
+    this.palette = p;
+
+    // Get quiz data
     const quizIndex = gameState.getCurrentQuizIndex();
     this.currentQuiz = quizData.quizzes[quizIndex];
 
     if (!this.currentQuiz) {
-      // No more quizzes - shouldn't happen, but safety check
       this.scene.start(SCENES.VICTORY);
       return;
     }
 
-    this.phase = 'dialogue';
+    // White background
+    this.cameras.main.setBackgroundColor(p.lightest);
 
-    // Background
-    this.cameras.main.setBackgroundColor(COLORS.BLACK);
-    this.cameras.main.fadeIn(300);
+    // Draw border frame
+    this.drawBorder();
 
-    // Draw NPC
-    this.drawNPC();
+    // Draw NPC in upper area
+    this.drawNPC(width / 2, 70);
 
-    // NPC name tag
-    this.add.text(width / 2, 220, this.currentQuiz.npcName, {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.SMALL + 'px',
-      color: '#f0f0f0',
-      backgroundColor: '#4a4a4a',
-      padding: { x: 8, y: 4 },
+    // NPC name label
+    this.drawNameLabel(width / 2, 120);
+
+    // Garlic counter in corner
+    this.drawGarlicCounter();
+
+    // Draw dialogue box at bottom
+    this.drawDialogueBox();
+
+    // Show dialogue text with typewriter
+    this.showDialogue(this.currentQuiz.dialogue);
+
+    // Input
+    this.input.on('pointerdown', () => this.handleInput());
+    this.input.keyboard.on('keydown-SPACE', () => this.handleInput());
+    this.input.keyboard.on('keydown-ENTER', () => this.handleInput());
+    this.input.keyboard.on('keydown-UP', () => this.moveSelection(-1));
+    this.input.keyboard.on('keydown-DOWN', () => this.moveSelection(1));
+  }
+
+  drawBorder() {
+    const { width, height } = this.scale;
+    const p = this.palette;
+    const g = this.add.graphics();
+
+    // Clean black border (Pokemon style)
+    g.lineStyle(2, p.darkest);
+    g.strokeRect(4, 4, width - 8, height - 8);
+  }
+
+  drawNPC(x, y) {
+    const g = this.add.graphics();
+    const p = this.palette;
+
+    // NPC background circle
+    g.fillStyle(p.light);
+    g.fillCircle(x, y, 40);
+    g.lineStyle(2, p.darkest);
+    g.strokeCircle(x, y, 40);
+
+    // Draw procedural NPC character (Pokemon-style simple person)
+    // Different colors for different NPC types
+    const npcColors = {
+      ajumma: 0xcd5c5c,    // Red dress
+      worker: 0x4169e1,    // Blue uniform
+      grandma: 0x8b4513,   // Brown hanbok
+      senior: 0x2f4f4f,    // Dark gray suit
+      hipster: 0x9370db,   // Purple shirt
+    };
+    const clothingColor = npcColors[this.currentQuiz.npc] || 0x4169e1;
+
+    // Head (skin tone)
+    g.fillStyle(0xffdab9);
+    g.fillCircle(x, y - 12, 12);
+    g.lineStyle(2, p.darkest);
+    g.strokeCircle(x, y - 12, 12);
+
+    // Hair
+    g.fillStyle(p.darkest);
+    g.fillRect(x - 10, y - 26, 20, 8);
+
+    // Body/clothing
+    g.fillStyle(clothingColor);
+    g.fillRect(x - 14, y, 28, 24);
+    g.lineStyle(2, p.darkest);
+    g.strokeRect(x - 14, y, 28, 24);
+
+    // Eyes
+    g.fillStyle(p.darkest);
+    g.fillRect(x - 6, y - 14, 4, 4);
+    g.fillRect(x + 2, y - 14, 4, 4);
+  }
+
+  drawNameLabel(x, y) {
+    const p = this.palette;
+    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
+
+    this.add.text(x, y, this.currentQuiz.npcName, {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '10px',
+      color: darkestHex,
     }).setOrigin(0.5);
+  }
 
-    // Garlic counter
-    this.createGarlicCounter();
+  drawGarlicCounter() {
+    const { width } = this.scale;
+    const p = this.palette;
+    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
 
-    // Create dialogue box
-    this.dialogueBox = new DialogueBox(
-      this,
-      20,
-      250,
-      width - 40,
-      100
-    );
+    // Simple text counter in top right
+    this.add.text(width - 10, 12, `🧄${gameState.getGarlics()}/5`, {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '8px',
+      color: darkestHex,
+    }).setOrigin(1, 0);
+  }
 
-    // Show NPC dialogue
-    this.dialogueBox.showText(this.currentQuiz.dialogue, null, () => {
-      // Enable tap to show choices
+  drawDialogueBox() {
+    const { width, height } = this.scale;
+    const p = this.palette;
+    const g = this.add.graphics();
+
+    // Pokemon-style box at bottom
+    const boxY = 140;
+    const boxH = height - boxY - 10;
+
+    // White fill
+    g.fillStyle(p.lightest);
+    g.fillRect(10, boxY, width - 20, boxH);
+
+    // Black border (clean Pokemon style)
+    g.lineStyle(2, p.darkest);
+    g.strokeRect(11, boxY + 1, width - 22, boxH - 2);
+
+    this.dialogueBoxY = boxY;
+    this.dialogueBoxH = boxH;
+  }
+
+  showDialogue(text) {
+    const { width } = this.scale;
+    const p = this.palette;
+    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
+
+    // Clear previous
+    if (this.dialogueText) this.dialogueText.destroy();
+    if (this.continueIndicator) this.continueIndicator.destroy();
+
+    this.fullText = text;
+    this.displayedText = '';
+    this.charIndex = 0;
+    this.isTyping = true;
+
+    this.dialogueText = this.add.text(20, this.dialogueBoxY + 10, '', {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '9px',
+      color: darkestHex,
+      wordWrap: { width: width - 50 },
+      lineSpacing: 4,
     });
 
-    // Create choice buttons (hidden initially)
-    this.createChoiceButtons();
-
-    // Input handling
-    this.input.on('pointerdown', () => {
-      audioManager.resume();
-      this.handleInput();
-    });
-
-    this.input.keyboard.on('keydown-SPACE', () => {
-      this.handleInput();
-    });
-
-    this.input.keyboard.on('keydown-ENTER', () => {
-      this.handleInput();
-    });
-
-    // Number key shortcuts for choices
-    ['ONE', 'TWO', 'THREE'].forEach((key, index) => {
-      this.input.keyboard.on(`keydown-${key}`, () => {
-        if (this.phase === 'choices') {
-          this.selectChoice(this.currentQuiz.choices[index].id);
+    // Typewriter effect
+    this.typeTimer = this.time.addEvent({
+      delay: 30,
+      callback: () => {
+        if (this.charIndex < this.fullText.length) {
+          this.displayedText += this.fullText[this.charIndex];
+          this.dialogueText.setText(this.displayedText);
+          this.charIndex++;
+          if (this.fullText[this.charIndex - 1] !== ' ') {
+            audioManager.playTypewriter();
+          }
+        } else {
+          this.finishTyping();
         }
-      });
+      },
+      repeat: text.length - 1,
+    });
+  }
+
+  finishTyping() {
+    this.isTyping = false;
+    if (this.typeTimer) this.typeTimer.destroy();
+    this.dialogueText.setText(this.fullText);
+
+    // Show continue indicator
+    const { width, height } = this.scale;
+    const p = this.palette;
+
+    this.continueIndicator = this.add.text(width - 25, height - 20, '▼', {
+      fontFamily: GAME_CONFIG.FONTS.MAIN,
+      fontSize: '8px',
+      color: '#' + p.darkest.toString(16).padStart(6, '0'),
+    });
+
+    // Blink
+    this.time.addEvent({
+      delay: 400,
+      callback: () => {
+        if (this.continueIndicator) {
+          this.continueIndicator.visible = !this.continueIndicator.visible;
+        }
+      },
+      loop: true,
     });
   }
 
   handleInput() {
+    audioManager.resume();
+
     if (this.phase === 'dialogue') {
-      if (this.dialogueBox.isTyping) {
-        this.dialogueBox.skipToEnd();
+      if (this.isTyping) {
+        // Skip to end
+        if (this.typeTimer) this.typeTimer.destroy();
+        this.displayedText = this.fullText;
+        this.dialogueText.setText(this.fullText);
+        this.finishTyping();
       } else {
         this.showChoices();
       }
+    } else if (this.phase === 'choices') {
+      this.selectChoice(this.currentQuiz.choices[this.selectedChoice].id);
     }
+  }
+
+  moveSelection(dir) {
+    if (this.phase !== 'choices') return;
+
+    audioManager.playSelect();
+    this.selectedChoice += dir;
+    if (this.selectedChoice < 0) this.selectedChoice = this.currentQuiz.choices.length - 1;
+    if (this.selectedChoice >= this.currentQuiz.choices.length) this.selectedChoice = 0;
+
+    this.updateChoiceHighlight();
   }
 
   showChoices() {
     this.phase = 'choices';
-    this.dialogueBox.hide();
+    this.selectedChoice = 0;
 
-    // Show choice buttons with animation
-    this.choiceButtons.forEach((btn, index) => {
-      btn.container.setVisible(true);
-      btn.container.setAlpha(0);
-      this.tweens.add({
-        targets: btn.container,
-        alpha: 1,
-        y: btn.targetY,
-        duration: 200,
-        delay: index * 100,
+    // Hide dialogue
+    if (this.dialogueText) this.dialogueText.destroy();
+    if (this.continueIndicator) this.continueIndicator.destroy();
+
+    const { width, height } = this.scale;
+    const p = this.palette;
+    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
+
+    // Redraw box for choices
+    const g = this.add.graphics();
+    g.fillStyle(p.lightest);
+    g.fillRect(10, this.dialogueBoxY, width - 20, this.dialogueBoxH);
+    g.lineStyle(3, p.darkest);
+    g.strokeRect(10, this.dialogueBoxY, width - 20, this.dialogueBoxH);
+
+    // Draw choices
+    this.choiceTexts = [];
+    this.choiceCursors = [];
+
+    const startY = this.dialogueBoxY + 12;
+    const lineH = 28;
+
+    this.currentQuiz.choices.forEach((choice, i) => {
+      const y = startY + i * lineH;
+
+      // Cursor
+      const cursor = this.add.text(18, y, '▶', {
+        fontFamily: GAME_CONFIG.FONTS.MAIN,
+        fontSize: '8px',
+        color: darkestHex,
+      });
+      cursor.visible = (i === 0);
+      this.choiceCursors.push(cursor);
+
+      // Choice text
+      const text = this.add.text(32, y, `${choice.id}) ${choice.text}`, {
+        fontFamily: GAME_CONFIG.FONTS.MAIN,
+        fontSize: '8px',
+        color: darkestHex,
+        wordWrap: { width: width - 60 },
+      });
+      this.choiceTexts.push(text);
+
+      // Make clickable
+      text.setInteractive({ useHandCursor: true });
+      text.on('pointerdown', () => {
+        this.selectedChoice = i;
+        this.selectChoice(choice.id);
+      });
+      text.on('pointerover', () => {
+        this.selectedChoice = i;
+        this.updateChoiceHighlight();
       });
     });
   }
 
-  createChoiceButtons() {
-    const { width, height } = this.scale;
-    const { FONTS, TEXT_SIZES, COLORS } = GAME_CONFIG;
-
-    const startY = 370;
-    const buttonHeight = 70;
-    const buttonSpacing = 10;
-
-    this.choiceButtons = this.currentQuiz.choices.map((choice, index) => {
-      const y = startY + index * (buttonHeight + buttonSpacing);
-
-      const container = this.add.container(width / 2, y - 20);
-      container.setVisible(false);
-
-      // Button background
-      const bg = this.add.graphics();
-      bg.fillStyle(COLORS.DARK_GRAY);
-      bg.fillRect(-160, -buttonHeight / 2, 320, buttonHeight);
-      bg.lineStyle(2, COLORS.WHITE);
-      bg.strokeRect(-160, -buttonHeight / 2, 320, buttonHeight);
-      container.add(bg);
-
-      // Choice letter
-      const letter = this.add.text(-140, 0, choice.id + ')', {
-        fontFamily: FONTS.MAIN,
-        fontSize: TEXT_SIZES.SMALL + 'px',
-        color: '#f0f0f0',
-      }).setOrigin(0, 0.5);
-      container.add(letter);
-
-      // Choice text (word wrapped)
-      const text = this.add.text(-115, 0, choice.text, {
-        fontFamily: FONTS.MAIN,
-        fontSize: TEXT_SIZES.TINY + 'px',
-        color: '#cacaca',
-        wordWrap: { width: 250 },
-        lineSpacing: 4,
-      }).setOrigin(0, 0.5);
-      container.add(text);
-
-      // Make interactive
-      container.setSize(320, buttonHeight);
-      container.setInteractive({ useHandCursor: true });
-
-      container.on('pointerover', () => {
-        bg.clear();
-        bg.fillStyle(COLORS.MID_GRAY);
-        bg.fillRect(-160, -buttonHeight / 2, 320, buttonHeight);
-        bg.lineStyle(3, COLORS.WHITE);
-        bg.strokeRect(-160, -buttonHeight / 2, 320, buttonHeight);
-        audioManager.playSelect();
-      });
-
-      container.on('pointerout', () => {
-        bg.clear();
-        bg.fillStyle(COLORS.DARK_GRAY);
-        bg.fillRect(-160, -buttonHeight / 2, 320, buttonHeight);
-        bg.lineStyle(2, COLORS.WHITE);
-        bg.strokeRect(-160, -buttonHeight / 2, 320, buttonHeight);
-      });
-
-      container.on('pointerdown', () => {
-        this.selectChoice(choice.id);
-      });
-
-      return { container, bg, targetY: y };
+  updateChoiceHighlight() {
+    this.choiceCursors.forEach((cursor, i) => {
+      cursor.visible = (i === this.selectedChoice);
     });
   }
 
@@ -194,393 +333,80 @@ export class QuizScene extends Phaser.Scene {
     if (this.phase !== 'choices') return;
     this.phase = 'result';
 
-    // Disable all buttons
-    this.choiceButtons.forEach((btn) => {
-      btn.container.disableInteractive();
-    });
-
     const isCorrect = choiceId === this.currentQuiz.correct;
 
     if (isCorrect) {
-      this.handleCorrectAnswer();
+      this.handleCorrect();
     } else {
-      this.handleWrongAnswer();
+      this.handleWrong();
     }
   }
 
-  handleCorrectAnswer() {
+  handleCorrect() {
+    const { width, height } = this.scale;
+    const p = this.palette;
+
     audioManager.playCorrect();
 
-    // Flash screen green briefly
-    const flash = this.add.rectangle(
-      this.scale.width / 2,
-      this.scale.height / 2,
-      this.scale.width,
-      this.scale.height,
-      0x44ff44,
-      0.3
-    );
-
+    // Flash
+    const flash = this.add.rectangle(width / 2, height / 2, width, height, p.light, 0.5);
     this.tweens.add({
       targets: flash,
       alpha: 0,
-      duration: 500,
+      duration: 300,
       onComplete: () => flash.destroy(),
     });
 
-    // Show "You got a garlic!" message
-    const { width, height } = this.scale;
-    const garlicMsg = this.add.text(width / 2, height / 2, 'You got a garlic!', {
+    // Show message
+    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
+    const msg = this.add.text(width / 2, height / 2, '✓ CORRECT!', {
       fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: GAME_CONFIG.TEXT_SIZES.MEDIUM + 'px',
-      color: '#f0f0f0',
-      backgroundColor: '#1a1a1a',
-      padding: { x: 20, y: 10 },
-    }).setOrigin(0.5).setAlpha(0);
-
-    // Draw flying garlic animation
-    const garlicIcon = this.add.graphics();
-    garlicIcon.fillStyle(0xf0f0f0);
-    garlicIcon.fillCircle(0, 0, 15);
-    garlicIcon.fillCircle(-8, 5, 10);
-    garlicIcon.fillCircle(8, 5, 10);
-    garlicIcon.setPosition(width / 2, height / 2 + 50);
-
-    this.tweens.add({
-      targets: garlicMsg,
-      alpha: 1,
-      duration: 300,
-    });
+      fontSize: '12px',
+      color: darkestHex,
+      backgroundColor: '#' + p.lightest.toString(16).padStart(6, '0'),
+      padding: { x: 10, y: 5 },
+    }).setOrigin(0.5);
 
     audioManager.playGarlicCollect();
 
-    // Animate garlic flying to counter
-    this.tweens.add({
-      targets: garlicIcon,
-      x: width - 60,
-      y: 30,
-      scale: 0.5,
-      duration: 800,
-      delay: 500,
-      ease: 'Power2',
-      onComplete: () => {
-        garlicIcon.destroy();
-        gameState.addGarlic();
-        this.updateGarlicCounter();
-
-        // Transition to transformation
-        this.time.delayedCall(500, () => {
-          this.scene.start(SCENES.TRANSFORM, {
-            transformation: this.currentQuiz.transformation,
-          });
-        });
-      },
+    this.time.delayedCall(1000, () => {
+      gameState.addGarlic();
+      this.scene.start(SCENES.TRANSFORM, {
+        transformation: this.currentQuiz.transformation,
+      });
     });
   }
 
-  handleWrongAnswer() {
+  handleWrong() {
+    const { width, height } = this.scale;
+    const p = this.palette;
+
     audioManager.playWrong();
 
-    // Flash screen red
-    const flash = this.add.rectangle(
-      this.scale.width / 2,
-      this.scale.height / 2,
-      this.scale.width,
-      this.scale.height,
-      0xff4444,
-      0.5
-    );
-
+    // Flash dark
+    const flash = this.add.rectangle(width / 2, height / 2, width, height, p.darkest, 0.6);
     this.tweens.add({
       targets: flash,
       alpha: 0,
-      duration: 300,
+      duration: 200,
       yoyo: true,
       repeat: 2,
-      onComplete: () => {
-        flash.destroy();
-        // Transition to game over
-        this.time.delayedCall(500, () => {
-          this.scene.start(SCENES.GAME_OVER, {
-            wrongFeedback: this.currentQuiz.wrongFeedback,
-          });
-        });
-      },
     });
 
-    // Show wrong text
-    const { width, height } = this.scale;
-    this.add.text(width / 2, height / 2, 'WRONG!', {
+    // Show message
+    const lightestHex = '#' + p.lightest.toString(16).padStart(6, '0');
+    this.add.text(width / 2, height / 2, '✗ WRONG!', {
       fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: GAME_CONFIG.TEXT_SIZES.LARGE + 'px',
-      color: '#ff4444',
+      fontSize: '12px',
+      color: lightestHex,
+      backgroundColor: '#' + p.darkest.toString(16).padStart(6, '0'),
+      padding: { x: 10, y: 5 },
     }).setOrigin(0.5);
-  }
 
-  drawNPC() {
-    const { width } = this.scale;
-    const x = width / 2;
-    const y = 120;
-
-    switch (this.currentQuiz.npc) {
-      case 'ajumma':
-        this.drawAjumma(x, y);
-        break;
-      case 'worker':
-        this.drawWorker(x, y);
-        break;
-      case 'grandma':
-        this.drawGrandma(x, y);
-        break;
-      case 'senior':
-        this.drawSenior(x, y);
-        break;
-      case 'hipster':
-        this.drawHipster(x, y);
-        break;
-      default:
-        this.drawGenericNPC(x, y);
-    }
-  }
-
-  drawAjumma(x, y) {
-    const g = this.add.graphics();
-
-    // Body (apron)
-    g.fillStyle(0x8a8a8a);
-    g.fillRect(x - 25, y, 50, 60);
-
-    // Apron
-    g.fillStyle(0xf0f0f0);
-    g.fillRect(x - 20, y + 10, 40, 45);
-
-    // Head
-    g.fillStyle(0xcacaca);
-    g.fillCircle(x, y - 15, 25);
-
-    // Curly perm hair
-    g.fillStyle(0x4a4a4a);
-    for (let i = -20; i <= 20; i += 8) {
-      g.fillCircle(x + i, y - 35, 8);
-    }
-    g.fillCircle(x - 25, y - 20, 7);
-    g.fillCircle(x + 25, y - 20, 7);
-
-    // Eyes (stern but warm)
-    g.fillStyle(0x1a1a1a);
-    g.fillRect(x - 12, y - 18, 6, 4);
-    g.fillRect(x + 6, y - 18, 6, 4);
-
-    // Slight smile
-    g.lineStyle(2, 0x1a1a1a);
-    g.beginPath();
-    g.arc(x, y - 5, 8, 0.2, Math.PI - 0.2);
-    g.strokePath();
-
-    // Hands on hips
-    g.fillStyle(0xcacaca);
-    g.fillCircle(x - 30, y + 20, 8);
-    g.fillCircle(x + 30, y + 20, 8);
-  }
-
-  drawWorker(x, y) {
-    const g = this.add.graphics();
-
-    // Body (uniform)
-    g.fillStyle(0x6a6a6a);
-    g.fillRect(x - 20, y, 40, 55);
-
-    // Uniform details
-    g.fillStyle(0x4a4a4a);
-    g.fillRect(x - 15, y + 5, 30, 8);
-
-    // Head
-    g.fillStyle(0xcacaca);
-    g.fillCircle(x, y - 15, 22);
-
-    // Hair
-    g.fillStyle(0x2a2a2a);
-    g.fillRect(x - 18, y - 35, 36, 15);
-
-    // Tired eyes (half closed)
-    g.fillStyle(0x1a1a1a);
-    g.fillRect(x - 10, y - 15, 6, 2);
-    g.fillRect(x + 4, y - 15, 6, 2);
-
-    // Earbud
-    g.fillStyle(0xf0f0f0);
-    g.fillCircle(x + 22, y - 10, 4);
-    g.lineStyle(1, 0xf0f0f0);
-    g.lineBetween(x + 22, y - 6, x + 15, y + 20);
-
-    // Name tag
-    g.fillStyle(0xf0f0f0);
-    g.fillRect(x - 12, y + 15, 24, 10);
-  }
-
-  drawGrandma(x, y) {
-    const g = this.add.graphics();
-
-    // Body (hiking vest)
-    g.fillStyle(0x5a5a5a);
-    g.fillRect(x - 22, y, 44, 55);
-
-    // Vest pockets
-    g.fillStyle(0x4a4a4a);
-    g.fillRect(x - 18, y + 15, 15, 12);
-    g.fillRect(x + 3, y + 15, 15, 12);
-
-    // Head
-    g.fillStyle(0xcacaca);
-    g.fillCircle(x, y - 15, 22);
-
-    // Visor
-    g.fillStyle(0x3a3a3a);
-    g.fillRect(x - 25, y - 30, 50, 8);
-    g.fillRect(x - 30, y - 28, 60, 5);
-
-    // Gray hair under visor
-    g.fillStyle(0x8a8a8a);
-    g.fillRect(x - 18, y - 25, 36, 8);
-
-    // Stern staring eyes
-    g.fillStyle(0x1a1a1a);
-    g.fillRect(x - 10, y - 15, 6, 5);
-    g.fillRect(x + 4, y - 15, 6, 5);
-
-    // Frown
-    g.lineStyle(2, 0x1a1a1a);
-    g.lineBetween(x - 8, y - 2, x + 8, y - 2);
-
-    // Hiking poles
-    g.fillStyle(0x8a8a8a);
-    g.fillRect(x - 35, y - 20, 4, 80);
-    g.fillRect(x + 31, y - 20, 4, 80);
-  }
-
-  drawSenior(x, y) {
-    const g = this.add.graphics();
-
-    // Body (wrinkled suit)
-    g.fillStyle(0x4a4a4a);
-    g.fillRect(x - 22, y, 44, 55);
-
-    // Tie (loosened)
-    g.fillStyle(0x6a6a6a);
-    g.fillRect(x - 5, y, 10, 35);
-
-    // Head (red/flushed face)
-    g.fillStyle(0xd0a0a0);
-    g.fillCircle(x, y - 15, 22);
-
-    // Hair (disheveled)
-    g.fillStyle(0x2a2a2a);
-    g.fillRect(x - 15, y - 35, 30, 12);
-
-    // Drunk eyes (squinty, happy)
-    g.fillStyle(0x1a1a1a);
-    g.lineStyle(2, 0x1a1a1a);
-    g.beginPath();
-    g.arc(x - 8, y - 15, 5, Math.PI, 0);
-    g.strokePath();
-    g.beginPath();
-    g.arc(x + 8, y - 15, 5, Math.PI, 0);
-    g.strokePath();
-
-    // Drunk smile
-    g.beginPath();
-    g.arc(x, y - 2, 10, 0.3, Math.PI - 0.3);
-    g.strokePath();
-
-    // Soju bottle
-    g.fillStyle(0x8a8a8a);
-    g.fillRect(x + 25, y + 10, 12, 30);
-    g.fillStyle(0x5a9a5a);
-    g.fillRect(x + 27, y + 15, 8, 20);
-  }
-
-  drawHipster(x, y) {
-    const g = this.add.graphics();
-
-    // Body (oversized tee)
-    g.fillStyle(0x6a6a6a);
-    g.fillRect(x - 28, y, 56, 55);
-
-    // Head
-    g.fillStyle(0xcacaca);
-    g.fillCircle(x, y - 15, 22);
-
-    // Bucket hat
-    g.fillStyle(0x4a4a4a);
-    g.fillRect(x - 28, y - 30, 56, 8);
-    g.fillRect(x - 20, y - 45, 40, 18);
-
-    // Hair peeking out
-    g.fillStyle(0x3a3a3a);
-    g.fillRect(x - 22, y - 25, 10, 8);
-    g.fillRect(x + 12, y - 25, 10, 8);
-
-    // Cool eyes
-    g.fillStyle(0x1a1a1a);
-    g.fillRect(x - 10, y - 15, 5, 4);
-    g.fillRect(x + 5, y - 15, 5, 4);
-
-    // Slight smirk
-    g.lineStyle(2, 0x1a1a1a);
-    g.lineBetween(x - 5, y - 3, x + 8, y - 5);
-
-    // Tote bag
-    g.fillStyle(0x8a8a8a);
-    g.fillRect(x + 20, y + 10, 20, 30);
-    g.lineStyle(1, 0x5a5a5a);
-    g.strokeRect(x + 22, y + 15, 16, 20);
-  }
-
-  drawGenericNPC(x, y) {
-    const g = this.add.graphics();
-
-    g.fillStyle(0x6a6a6a);
-    g.fillRect(x - 20, y, 40, 50);
-
-    g.fillStyle(0xcacaca);
-    g.fillCircle(x, y - 15, 20);
-
-    g.fillStyle(0x1a1a1a);
-    g.fillRect(x - 8, y - 18, 4, 4);
-    g.fillRect(x + 4, y - 18, 4, 4);
-  }
-
-  createGarlicCounter() {
-    const { width } = this.scale;
-    const { FONTS, TEXT_SIZES, COLORS } = GAME_CONFIG;
-
-    const container = this.add.container(width - 60, 30);
-
-    const bg = this.add.graphics();
-    bg.fillStyle(COLORS.BLACK, 0.9);
-    bg.fillRect(-45, -18, 90, 36);
-    bg.lineStyle(2, COLORS.WHITE);
-    bg.strokeRect(-45, -18, 90, 36);
-    container.add(bg);
-
-    const garlicIcon = this.add.graphics();
-    garlicIcon.fillStyle(0xf0f0f0);
-    garlicIcon.fillCircle(-28, 0, 10);
-    garlicIcon.fillCircle(-33, 5, 6);
-    garlicIcon.fillCircle(-23, 5, 6);
-    container.add(garlicIcon);
-
-    this.garlicCounterText = this.add.text(10, 0, `${gameState.getGarlics()}/5`, {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.MEDIUM + 'px',
-      color: '#f0f0f0',
-    }).setOrigin(0.5);
-    container.add(this.garlicCounterText);
-  }
-
-  updateGarlicCounter() {
-    if (this.garlicCounterText) {
-      this.garlicCounterText.setText(`${gameState.getGarlics()}/5`);
-    }
+    this.time.delayedCall(1500, () => {
+      this.scene.start(SCENES.GAME_OVER, {
+        wrongFeedback: this.currentQuiz.wrongFeedback,
+      });
+    });
   }
 }
