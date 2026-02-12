@@ -1,0 +1,219 @@
+// mapData.js - 32x32 Seoul overworld map
+// Flat arrays (32*32 = 1024 elements) for performance
+
+// Terrain type constants
+export const TERRAIN = {
+  GRASS: 0,
+  GRASS_ALT: 1,
+  TALL_GRASS: 2,
+  PATH: 3,
+  WATER: 4,
+  FENCE: 5,
+  BRIDGE: 6,
+};
+
+const T = TERRAIN;
+
+// Helper: generate a row from a pattern string for readability
+// G=GRASS, A=GRASS_ALT, T=TALL_GRASS, P=PATH, W=WATER, F=FENCE, B=BRIDGE
+function row(...tiles) {
+  return tiles;
+}
+
+// 32x32 terrain map (1024 tiles) stored row-by-row
+// terrain[row * 32 + col]
+const terrain = [
+  // Row 0: top fence border
+  ...row(T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE),
+
+  // Row 1: border + northern trees/grass
+  ...row(T.FENCE,T.GRASS,T.GRASS_ALT,T.GRASS,T.FENCE,T.FENCE,T.GRASS,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.FENCE,T.FENCE,T.GRASS_ALT,T.GRASS,T.GRASS,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.FENCE,T.FENCE,T.GRASS,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS,T.FENCE,T.FENCE,T.GRASS,T.GRASS_ALT,T.FENCE),
+
+  // Row 2: Namsan Tower area - buildings (fence clusters) with paths
+  ...row(T.FENCE,T.GRASS,T.GRASS,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.GRASS,T.GRASS,T.GRASS,T.FENCE,T.FENCE,T.GRASS,T.GRASS,T.PATH,T.PATH,T.PATH,T.GRASS,T.GRASS,T.FENCE,T.FENCE,T.GRASS,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.FENCE,T.GRASS_ALT,T.GRASS,T.FENCE),
+
+  // Row 3: buildings north, main N-S path
+  ...row(T.FENCE,T.GRASS_ALT,T.GRASS,T.PATH,T.FENCE,T.FENCE,T.FENCE,T.PATH,T.FENCE,T.FENCE,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.PATH,T.GRASS,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS,T.GRASS,T.PATH,T.GRASS,T.FENCE,T.FENCE,T.FENCE,T.GRASS,T.GRASS,T.GRASS_ALT,T.FENCE),
+
+  // Row 4: buildings north continued
+  ...row(T.FENCE,T.GRASS,T.GRASS_ALT,T.PATH,T.FENCE,T.FENCE,T.FENCE,T.PATH,T.FENCE,T.FENCE,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS,T.PATH,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.PATH,T.GRASS_ALT,T.FENCE,T.FENCE,T.FENCE,T.GRASS_ALT,T.GRASS,T.GRASS,T.FENCE),
+
+  // Row 5: transition row, paths connecting east-west
+  ...row(T.FENCE,T.GRASS,T.GRASS,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.FENCE),
+
+  // Row 6: tall grass encounter zone 1 (north)
+  ...row(T.FENCE,T.GRASS_ALT,T.GRASS,T.PATH,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.PATH,T.GRASS,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS,T.GRASS_ALT,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.GRASS,T.GRASS,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS,T.FENCE),
+
+  // Row 7: tall grass zone 1 continued
+  ...row(T.FENCE,T.GRASS,T.GRASS_ALT,T.PATH,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS,T.PATH,T.GRASS_ALT,T.GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.FENCE),
+
+  // Row 8: tall grass zone 1 bottom + NPC area (ajumma at col 10)
+  ...row(T.FENCE,T.GRASS,T.GRASS,T.PATH,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.GRASS,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.GRASS,T.GRASS_ALT,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS,T.GRASS,T.GRASS_ALT,T.FENCE),
+
+  // Row 9: main east-west boulevard with buildings
+  ...row(T.FENCE,T.FENCE,T.FENCE,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.PATH,T.FENCE,T.FENCE,T.FENCE,T.FENCE),
+
+  // Row 10: main boulevard continued + NPC area (hipster at col 26)
+  ...row(T.FENCE,T.FENCE,T.FENCE,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.FENCE,T.FENCE,T.FENCE,T.FENCE),
+
+  // Row 11: Han River (water) - north bank
+  ...row(T.FENCE,T.GRASS,T.GRASS_ALT,T.GRASS,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.BRIDGE,T.BRIDGE,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.BRIDGE,T.BRIDGE,T.WATER,T.WATER,T.WATER,T.WATER,T.GRASS,T.GRASS_ALT,T.FENCE),
+
+  // Row 12: Han River (water) - middle
+  ...row(T.FENCE,T.GRASS,T.GRASS,T.GRASS_ALT,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.BRIDGE,T.BRIDGE,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.BRIDGE,T.BRIDGE,T.WATER,T.WATER,T.WATER,T.WATER,T.GRASS_ALT,T.GRASS,T.FENCE),
+
+  // Row 13: Han River (water) - south bank
+  ...row(T.FENCE,T.GRASS_ALT,T.GRASS,T.GRASS,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.BRIDGE,T.BRIDGE,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.WATER,T.BRIDGE,T.BRIDGE,T.WATER,T.WATER,T.WATER,T.WATER,T.GRASS,T.GRASS,T.FENCE),
+
+  // Row 14: south bank - tall grass encounter zone 2
+  ...row(T.FENCE,T.GRASS,T.GRASS_ALT,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.FENCE),
+
+  // Row 15: tall grass zone 2 + NPC area (worker at col 22)
+  ...row(T.FENCE,T.GRASS,T.GRASS,T.PATH,T.GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.PATH,T.GRASS_ALT,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.GRASS,T.GRASS,T.PATH,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.FENCE),
+
+  // Row 16: tall grass zone 2 continued - player start area (col 16, row 16)
+  ...row(T.FENCE,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS_ALT,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS,T.TALL_GRASS,T.PATH,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS,T.FENCE),
+
+  // Row 17: southern Seoul - paths and shops
+  ...row(T.FENCE,T.GRASS,T.GRASS,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.GRASS,T.GRASS,T.GRASS_ALT,T.FENCE),
+
+  // Row 18: southern Seoul - store area
+  ...row(T.FENCE,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS,T.FENCE,T.FENCE,T.FENCE,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS,T.GRASS_ALT,T.FENCE,T.FENCE,T.FENCE,T.GRASS,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.FENCE),
+
+  // Row 19: store buildings + subway entrance
+  ...row(T.FENCE,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS_ALT,T.FENCE,T.FENCE,T.FENCE,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS,T.GRASS,T.FENCE,T.FENCE,T.FENCE,T.GRASS_ALT,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS_ALT,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS_ALT,T.FENCE),
+
+  // Row 20: NPC area (grandma at col 5) + path network
+  ...row(T.FENCE,T.GRASS,T.GRASS,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.PATH,T.GRASS,T.GRASS,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.FENCE),
+
+  // Row 21: hanok village area
+  ...row(T.FENCE,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.PATH,T.FENCE,T.FENCE,T.FENCE,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS,T.FENCE,T.FENCE,T.FENCE,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS,T.GRASS,T.GRASS_ALT,T.FENCE),
+
+  // Row 22: hanok buildings + NPC area (senior at col 18)
+  ...row(T.FENCE,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS,T.PATH,T.FENCE,T.FENCE,T.FENCE,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS,T.GRASS_ALT,T.PATH,T.PATH,T.PATH,T.FENCE,T.FENCE,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS,T.FENCE),
+
+  // Row 23: hanok area + connecting paths
+  ...row(T.FENCE,T.GRASS,T.GRASS,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.FENCE),
+
+  // Row 24: transition to southern tall grass
+  ...row(T.FENCE,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS,T.FENCE),
+
+  // Row 25: tall grass encounter zone 3 (south)
+  ...row(T.FENCE,T.GRASS,T.GRASS_ALT,T.PATH,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.GRASS,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS_ALT,T.TALL_GRASS,T.TALL_GRASS,T.PATH,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.FENCE),
+
+  // Row 26: tall grass zone 3 continued
+  ...row(T.FENCE,T.GRASS,T.GRASS,T.PATH,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.PATH,T.GRASS,T.TALL_GRASS,T.TALL_GRASS,T.PATH,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.GRASS,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS,T.FENCE),
+
+  // Row 27: tall grass zone 3 bottom
+  ...row(T.FENCE,T.GRASS_ALT,T.GRASS,T.PATH,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS_ALT,T.TALL_GRASS,T.TALL_GRASS,T.PATH,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.TALL_GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.PATH,T.GRASS,T.GRASS,T.GRASS_ALT,T.FENCE),
+
+  // Row 28: south path connecting to bottom border
+  ...row(T.FENCE,T.GRASS,T.GRASS_ALT,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS,T.FENCE),
+
+  // Row 29: near-bottom border area
+  ...row(T.FENCE,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.FENCE,T.PATH,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.PATH,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS,T.FENCE,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.FENCE),
+
+  // Row 30: bottom trees
+  ...row(T.FENCE,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.FENCE,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS_ALT,T.PATH,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS_ALT,T.GRASS,T.PATH,T.GRASS_ALT,T.FENCE,T.GRASS,T.GRASS_ALT,T.GRASS,T.GRASS,T.GRASS_ALT,T.FENCE),
+
+  // Row 31: bottom fence border
+  ...row(T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE,T.FENCE),
+];
+
+// Verify terrain array has exactly 1024 entries
+if (terrain.length !== 1024) {
+  throw new Error(`Map terrain must have 1024 tiles, got ${terrain.length}`);
+}
+
+// Exported map data object
+export const MAP = {
+  width: 32,
+  height: 32,
+  terrain,
+  collision: [],
+  tallGrass: [],
+};
+
+/**
+ * Generate collision and tallGrass arrays from terrain data.
+ * FENCE and WATER are blocked (collision = 1).
+ * BRIDGE is walkable (collision = 0).
+ * TALL_GRASS tiles are flagged for encounter checks.
+ */
+export function generateMapData() {
+  MAP.collision = MAP.terrain.map(t =>
+    (t === T.FENCE || t === T.WATER) ? 1 : 0
+  );
+  MAP.tallGrass = MAP.terrain.map(t =>
+    t === T.TALL_GRASS ? 1 : 0
+  );
+}
+
+// NPC spawn positions (tile coordinates)
+// All positions are on walkable tiles (PATH or GRASS)
+export const NPC_SPAWNS = [
+  { id: 'ajumma',  col: 10, row: 8,  direction: 'down',  palette: 'BROWN' },
+  { id: 'hipster', col: 26, row: 10, direction: 'down',  palette: 'GREEN' },
+  { id: 'worker',  col: 22, row: 15, direction: 'left',  palette: 'BLUE'  },
+  { id: 'grandma', col: 5,  row: 20, direction: 'down',  palette: 'RED'   },
+  { id: 'senior',  col: 18, row: 22, direction: 'right', palette: 'BLUE'  },
+];
+
+// Player spawn position (tile coordinates, must be walkable)
+export const PLAYER_START = { col: 16, row: 16 };
+
+/**
+ * Check if a tile is walkable
+ * @param {number} col - tile column (0-31)
+ * @param {number} row - tile row (0-31)
+ * @returns {boolean}
+ */
+export function isWalkable(col, row) {
+  if (col < 0 || col >= MAP.width || row < 0 || row >= MAP.height) return false;
+  return MAP.collision[row * MAP.width + col] === 0;
+}
+
+/**
+ * Check if a tile is tall grass (triggers encounters)
+ * @param {number} col - tile column (0-31)
+ * @param {number} row - tile row (0-31)
+ * @returns {boolean}
+ */
+export function isTallGrass(col, row) {
+  if (col < 0 || col >= MAP.width || row < 0 || row >= MAP.height) return false;
+  return MAP.tallGrass[row * MAP.width + col] === 1;
+}
+
+/**
+ * Get terrain type at tile coordinates
+ * @param {number} col - tile column (0-31)
+ * @param {number} row - tile row (0-31)
+ * @returns {number} terrain type constant, or -1 if out of bounds
+ */
+export function getTerrainAt(col, row) {
+  if (col < 0 || col >= MAP.width || row < 0 || row >= MAP.height) return -1;
+  return MAP.terrain[row * MAP.width + col];
+}
+
+/**
+ * Convert tile coordinates to pixel coordinates
+ * @param {number} col - tile column
+ * @param {number} row - tile row
+ * @returns {{ x: number, y: number }} pixel position (top-left of tile)
+ */
+export function tileToPixel(col, row) {
+  return { x: col * 8, y: row * 8 };
+}
+
+/**
+ * Convert pixel coordinates to tile coordinates
+ * @param {number} x - pixel x
+ * @param {number} y - pixel y
+ * @returns {{ col: number, row: number }} tile coordinates
+ */
+export function pixelToTile(x, y) {
+  return { col: Math.floor(x / 8), row: Math.floor(y / 8) };
+}
+
+// Auto-generate collision and tallGrass data on module load
+generateMapData();

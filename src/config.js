@@ -1,67 +1,29 @@
-// Game Configuration
-export const GAME_CONFIG = {
-  // Screen dimensions - Game Boy aspect ratio scaled up (160x144 original)
-  // Using 2.5x scale for mobile: 400x360, but we need portrait so we rotate concept
-  WIDTH: 320,
-  HEIGHT: 288, // True Game Boy ratio scaled 2x
+// Game Configuration — Pokemon Gold GBC Style (160x144 native)
 
-  // Pokemon Red/Blue style palette - bright and colorful
-  COLORS: {
-    DARKEST: 0x000000,   // Pure black (borders/text)
-    DARK: 0x555555,      // Dark gray (secondary)
-    LIGHT: 0xaaaaaa,     // Light gray (disabled/shadow)
-    LIGHTEST: 0xffffff,  // Pure white (backgrounds)
-    // Pokemon-style environment colors
-    GRASS_LIGHT: 0x90ee90,  // Light green grass
-    GRASS_DARK: 0x228b22,   // Darker grass accent
-    PATH: 0xd2b48c,         // Tan/brown path
-    WATER: 0x87ceeb,        // Sky blue water
-    TREE_GREEN: 0x228b22,   // Forest green
-    ROOF_RED: 0xcd5c5c,     // Indian red for roofs
-    // Legacy references (kept for compatibility)
-    BLACK: 0x000000,
-    DARK_GRAY: 0x555555,
-    LIGHT_GRAY: 0xaaaaaa,
-    WHITE: 0xffffff,
-  },
-
-  // Use Pokemon Red/Blue clean palette
-  USE_GREEN_PALETTE: false,
-
-  // Typography
-  FONTS: {
-    MAIN: 'Press Start 2P',
-    FALLBACK: 'monospace',
-  },
-
-  // Text sizes - LARGER for readability
-  TEXT_SIZES: {
-    TINY: 10,
-    SMALL: 12,
-    MEDIUM: 14,
-    LARGE: 18,
-    TITLE: 24,
-  },
-
-  // Game settings
-  SETTINGS: {
-    TOTAL_GARLICS: 5,
-    TILES_BEFORE_ENCOUNTER: 12,
-    TYPEWRITER_SPEED: 30, // ms per character
-    TRANSITION_DURATION: 500,
-  },
-
-  // LocalNomad branding
-  BRANDING: {
-    URL: 'https://localnomad.club',
-    NAME: 'LocalNomad',
-  },
+export const GAME = {
+  WIDTH: 160,
+  HEIGHT: 144,
+  TILE: 8,
+  SPRITE: 16,
+  MAP_COLS: 32,
+  MAP_ROWS: 32,
+  MAP_VIEW_COLS: 20,  // tiles visible horizontally (160/8)
+  MAP_VIEW_ROWS: 18,  // tiles visible vertically (144/8)
+  WALK_PX_PER_FRAME: 2,
+  WALK_FRAMES: 8,     // 8 frames to cross one 16px tile at 2px/frame
+  TOTAL_GARLICS: 5,
+  ENCOUNTER_MIN_STEPS: 3,
+  ENCOUNTER_CHANCE: 0.25,
+  TYPEWRITER_MS: 30,
+  DIALOG_LINES: 2,
+  DIALOG_CHARS_PER_LINE: 18,
+  FONT: 'Press Start 2P',
+  FONT_SIZE: 8,
+  FONT_FALLBACK: 'monospace',
 };
 
-// Scene keys
 export const SCENES = {
   BOOT: 'BootScene',
-  PRELOAD: 'PreloadScene',
   TITLE: 'TitleScene',
   INTRO: 'IntroScene',
   OVERWORLD: 'OverworldScene',
@@ -72,12 +34,48 @@ export const SCENES = {
   SCROLL: 'ScrollScene',
 };
 
-// Game state defaults
 export const INITIAL_STATE = {
   garlicsCollected: 0,
   currentQuiz: 0,
   transformationStage: 0,
   tilesWalked: 0,
+  stepsInGrass: 0,
   gameStarted: false,
   gameCompleted: false,
+  defeatedNPCs: [],
 };
+
+export const BRANDING = {
+  URL: 'https://localnomad.club',
+  NAME: 'LocalNomad',
+};
+
+// Tile type constants
+export const TILE = {
+  EMPTY: 0,
+  GRASS: 1,
+  TALL_GRASS: 2,
+  PATH: 3,
+  WATER: 4,
+  TREE_TOP: 5,
+  TREE_TRUNK: 6,
+  BUILDING_WALL: 7,
+  BUILDING_ROOF: 8,
+  DOOR: 9,
+  FENCE: 10,
+  SIGN: 11,
+  BRIDGE: 12,
+  TOWER_BASE: 13,
+  TOWER_TOP: 14,
+  SUBWAY: 15,
+  STORE_TOP: 16,
+  STORE_BOTTOM: 17,
+};
+
+// Solid (non-walkable) tiles
+export const SOLID_TILES = [
+  TILE.WATER, TILE.TREE_TOP, TILE.TREE_TRUNK,
+  TILE.BUILDING_WALL, TILE.BUILDING_ROOF,
+  TILE.FENCE, TILE.TOWER_BASE, TILE.TOWER_TOP,
+  TILE.STORE_TOP,
+];

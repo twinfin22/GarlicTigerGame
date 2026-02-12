@@ -1,9 +1,12 @@
-// TransformScene - Pokemon-style evolution animation
+// TransformScene - Pokemon evolution screen (160x144 native)
 
 import Phaser from 'phaser';
-import { GAME_CONFIG, SCENES } from '../config.js';
+import { GAME, SCENES } from '../config.js';
 import { audioManager } from '../utils/AudioManager.js';
 import { gameState } from '../utils/StateManager.js';
+import { inputHandler } from '../utils/InputHandler.js';
+import { BG_PALETTES, BATTLE, hexToCSS } from '../data/palettes.js';
+import { drawTigerAtStage } from '../utils/TileRenderer.js';
 
 export class TransformScene extends Phaser.Scene {
   constructor() {
@@ -16,227 +19,165 @@ export class TransformScene extends Phaser.Scene {
   }
 
   create() {
-    const { width, height } = this.scale;
-    const { COLORS, FONTS, TEXT_SIZES } = GAME_CONFIG;
+    inputHandler.init(this);
 
-    // White flash background
-    this.cameras.main.setBackgroundColor(0xf0f0f0);
+    // Dark background
+    this.cameras.main.setBackgroundColor(0x383838);
 
     // Play transformation sound
     audioManager.playTransform();
 
-    // Create sparkle particles
-    this.createSparkles();
-
-    // Title text
-    this.add.text(width / 2, 80, 'The tiger is', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.MEDIUM + 'px',
-      color: '#1a1a1a',
+    // "What?" and "TIGER is transforming!" text at top
+    this.add.text(80, 10, 'What?', {
+      fontFamily: GAME.FONT,
+      fontSize: '8px',
+      color: '#F0E0D0',
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, 110, 'transforming...!', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.MEDIUM + 'px',
-      color: '#1a1a1a',
+    this.add.text(80, 22, 'TIGER is', {
+      fontFamily: GAME.FONT,
+      fontSize: '8px',
+      color: '#F0E0D0',
     }).setOrigin(0.5);
 
-    // Draw transforming tiger
-    this.tigerContainer = this.add.container(width / 2, height / 2 - 30);
-    this.drawTransformingTiger();
+    this.add.text(80, 32, 'transforming!', {
+      fontFamily: GAME.FONT,
+      fontSize: '8px',
+      color: '#F0E0D0',
+    }).setOrigin(0.5);
 
-    // Pulsing animation for tiger
-    this.tweens.add({
-      targets: this.tigerContainer,
-      scaleX: 1.1,
-      scaleY: 1.1,
-      duration: 300,
-      yoyo: true,
-      repeat: 5,
-      ease: 'Sine.easeInOut',
+    // Current and new stage
+    const newStage = gameState.getTransformationStage();
+    const oldStage = Math.max(0, newStage - 1);
+
+    // Container for the flickering tiger sprites
+    this.tigerContainer = this.add.container(0, 0);
+
+    // Draw old stage tiger (initially visible), centered
+    const tigerX = 72;
+    const tigerY = 50;
+    this.oldTiger = drawTigerAtStage(this, tigerX, tigerY, oldStage);
+    this.tigerContainer.add(this.oldTiger);
+
+    // Draw new stage tiger (initially hidden)
+    this.newTiger = drawTigerAtStage(this, tigerX, tigerY, newStage);
+    this.newTiger.setVisible(false);
+    this.tigerContainer.add(this.newTiger);
+
+    // Create pixel-art sparkle effects
+    this.createPixelSparkles();
+
+    // Pokemon evolution flickering animation
+    // Start at 500ms intervals, accelerate to 50ms over ~3 seconds
+    this.flickerCount = 0;
+    this.flickerTotal = 18;
+    this.flickerDelay = 500;
+    this.showingOld = true;
+    this.startFlicker();
+
+    // After flickering completes, do white flash then reveal final form
+    this.time.delayedCall(3200, () => {
+      this.doWhiteFlash();
     });
 
-    // Flashing effect
-    this.createFlashingOverlay();
-
-    // Show transformation description after animation
-    this.time.delayedCall(2000, () => {
-      this.showTransformationResult();
+    // Cleanup on shutdown
+    this.events.once('shutdown', () => {
+      inputHandler.destroy();
     });
   }
 
-  createSparkles() {
-    const { width, height } = this.scale;
+  startFlicker() {
+    if (this.flickerCount >= this.flickerTotal) {
+      return;
+    }
 
-    // Create multiple sparkle particles
-    for (let i = 0; i < 20; i++) {
-      const sparkle = this.add.star(
-        Phaser.Math.Between(50, width - 50),
-        Phaser.Math.Between(150, height - 200),
-        4,
-        3,
-        8,
-        0x1a1a1a
-      );
+    this.time.delayedCall(this.flickerDelay, () => {
+      // Toggle visibility
+      this.showingOld = !this.showingOld;
+      this.oldTiger.setVisible(this.showingOld);
+      this.newTiger.setVisible(!this.showingOld);
+
+      this.flickerCount++;
+
+      // Accelerate: linearly interpolate from 500ms to 50ms
+      const progress = this.flickerCount / this.flickerTotal;
+      this.flickerDelay = Math.max(50, Math.floor(500 - (450 * progress)));
+
+      this.startFlicker();
+    });
+  }
+
+  doWhiteFlash() {
+    // Ensure new form is shown
+    this.oldTiger.setVisible(false);
+    this.newTiger.setVisible(true);
+
+    // White flash (fullscreen rectangle)
+    const flash = this.add.rectangle(80, 72, 160, 144, 0xF0E0D0, 1);
+    flash.setDepth(100);
+
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 800,
+      ease: 'Power2',
+      onComplete: () => {
+        flash.destroy();
+        this.showTransformationResult();
+      },
+    });
+  }
+
+  createPixelSparkles() {
+    // Create multiple pixel-art 3x3 cross sparkles
+    for (let i = 0; i < 12; i++) {
+      const sparkle = this.add.graphics();
+      const sx = Phaser.Math.Between(20, 140);
+      const sy = Phaser.Math.Between(45, 75);
+
+      // 3x3 cross pattern
+      sparkle.fillStyle(0x989898);
+      sparkle.fillRect(sx, sy - 1, 1, 3); // vertical
+      sparkle.fillRect(sx - 1, sy, 3, 1); // horizontal
+
+      sparkle.setAlpha(0);
 
       // Random twinkling animation
       this.tweens.add({
         targets: sparkle,
-        alpha: 0,
-        scale: 0,
-        duration: Phaser.Math.Between(500, 1000),
-        delay: Phaser.Math.Between(0, 1500),
+        alpha: 1,
+        duration: Phaser.Math.Between(200, 400),
+        delay: Phaser.Math.Between(0, 2500),
         yoyo: true,
         repeat: -1,
-      });
-
-      // Floating motion
-      this.tweens.add({
-        targets: sparkle,
-        y: sparkle.y - 50,
-        duration: Phaser.Math.Between(1000, 2000),
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
+        hold: Phaser.Math.Between(100, 300),
       });
     }
-  }
-
-  createFlashingOverlay() {
-    const { width, height } = this.scale;
-
-    const flash = this.add.rectangle(width / 2, height / 2, width, height, 0xffffff, 0);
-
-    // Flash sequence
-    this.tweens.add({
-      targets: flash,
-      alpha: 0.8,
-      duration: 100,
-      yoyo: true,
-      repeat: 8,
-      delay: 500,
-    });
-  }
-
-  drawTransformingTiger() {
-    const stage = gameState.getTransformationStage();
-    const g = this.add.graphics();
-
-    // Larger tiger sprite for transformation scene
-    const scale = 2;
-
-    // Colors based on transformation
-    const bodyColor = stage >= 4 ? 0x2a2a2a : 0xcacaca;
-    const furColor = stage >= 1 ? 0xf0f0f0 : bodyColor;
-
-    // Body dimensions
-    const bodyHeight = (20 + (stage >= 2 ? 12 : 0)) * scale;
-    const bodyWidth = 16 * scale;
-
-    // Draw body
-    g.fillStyle(furColor);
-    g.fillRect(-bodyWidth / 2, -bodyHeight / 2, bodyWidth, bodyHeight);
-
-    // Draw stripes only if stage 0
-    if (stage < 1) {
-      g.fillStyle(0x4a4a4a);
-      g.fillRect(-bodyWidth / 2 + 4, -bodyHeight / 2 + 8, 6, 4);
-      g.fillRect(-bodyWidth / 2 + 16, -bodyHeight / 2 + 8, 6, 4);
-      g.fillRect(-bodyWidth / 2 + 8, -bodyHeight / 2 + 20, 8, 4);
-    }
-
-    // Fur particles flying off (stage 1)
-    if (stage === 1) {
-      for (let i = 0; i < 8; i++) {
-        const particle = this.add.circle(
-          Phaser.Math.Between(-60, 60),
-          Phaser.Math.Between(-80, 40),
-          3,
-          0xcacaca
-        );
-        this.tigerContainer.add(particle);
-
-        this.tweens.add({
-          targets: particle,
-          x: particle.x + Phaser.Math.Between(-100, 100),
-          y: particle.y + Phaser.Math.Between(-100, 100),
-          alpha: 0,
-          duration: 2000,
-          ease: 'Power2',
-        });
-      }
-    }
-
-    // Draw head
-    const headColor = stage >= 4 ? 0x2a2a2a : bodyColor;
-    g.fillStyle(headColor);
-    g.fillRect(-16, -bodyHeight / 2 - 24, 32, 24);
-
-    // Eyes
-    g.fillStyle(stage >= 4 ? 0x1a1a1a : 0x1a1a1a);
-    g.fillRect(-10, -bodyHeight / 2 - 16, 6, 6);
-    g.fillRect(4, -bodyHeight / 2 - 16, 6, 6);
-
-    // Ears
-    g.fillStyle(headColor);
-    g.fillTriangle(-16, -bodyHeight / 2 - 24, -16, -bodyHeight / 2 - 36, -6, -bodyHeight / 2 - 24);
-    g.fillTriangle(16, -bodyHeight / 2 - 24, 16, -bodyHeight / 2 - 36, 6, -bodyHeight / 2 - 24);
-
-    // Stage 3: Speech bubble
-    if (stage >= 3) {
-      g.fillStyle(0xf0f0f0);
-      g.fillRect(25, -bodyHeight / 2 - 40, 50, 25);
-      g.fillTriangle(25, -bodyHeight / 2 - 28, 25, -bodyHeight / 2 - 18, 15, -bodyHeight / 2 - 23);
-
-      const bubbleText = this.add.text(30, -bodyHeight / 2 - 35, 'Seuree!', {
-        fontFamily: GAME_CONFIG.FONTS.MAIN,
-        fontSize: '8px',
-        color: '#1a1a1a',
-      });
-      this.tigerContainer.add(bubbleText);
-    }
-
-    // Stage 5: Bowing motion
-    if (stage >= 5) {
-      // Add bow motion
-      this.tweens.add({
-        targets: this.tigerContainer,
-        angle: 15,
-        duration: 500,
-        yoyo: true,
-        repeat: 3,
-        ease: 'Sine.easeInOut',
-      });
-    }
-
-    this.tigerContainer.add(g);
   }
 
   showTransformationResult() {
-    const { width, height } = this.scale;
-    const { FONTS, TEXT_SIZES, COLORS } = GAME_CONFIG;
-
-    // Darken background slightly
-    this.cameras.main.setBackgroundColor(0xe0e0e0);
-
     // Show transformation title
-    const titleBg = this.add.rectangle(width / 2, height - 180, width - 40, 50, COLORS.BLACK);
+    const titleBg = this.add.graphics();
+    titleBg.fillStyle(0x686868);
+    titleBg.fillRect(10, 82, 140, 14);
+    titleBg.lineStyle(1, 0x383838);
+    titleBg.strokeRect(10, 82, 140, 14);
 
-    const title = this.add.text(width / 2, height - 180, this.transformation.title, {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.MEDIUM + 'px',
-      color: '#f0f0f0',
+    const title = this.add.text(80, 89, this.transformation.title, {
+      fontFamily: GAME.FONT,
+      fontSize: '8px',
+      color: '#F0E0D0',
     }).setOrigin(0.5).setAlpha(0);
 
     // Show description
-    const description = this.add.text(width / 2, height - 120, this.transformation.description, {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.SMALL + 'px',
-      color: '#1a1a1a',
-      wordWrap: { width: width - 60 },
+    const description = this.add.text(80, 102, this.transformation.description, {
+      fontFamily: GAME.FONT,
+      fontSize: '6px',
+      color: '#F0E0D0',
+      wordWrap: { width: 140 },
       align: 'center',
-      lineSpacing: 6,
-    }).setOrigin(0.5).setAlpha(0);
+      lineSpacing: 4,
+    }).setOrigin(0.5, 0).setAlpha(0);
 
     // Animate in
     this.tweens.add({
@@ -245,11 +186,11 @@ export class TransformScene extends Phaser.Scene {
       duration: 500,
     });
 
-    // Continue prompt
-    const continueText = this.add.text(width / 2, height - 50, 'Tap to continue', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.TINY + 'px',
-      color: '#4a4a4a',
+    // "Tap to continue" prompt
+    const continueText = this.add.text(80, 134, 'Tap to continue', {
+      fontFamily: GAME.FONT,
+      fontSize: '6px',
+      color: '#989898',
     }).setOrigin(0.5).setAlpha(0);
 
     this.tweens.add({
@@ -270,15 +211,7 @@ export class TransformScene extends Phaser.Scene {
 
     // Allow continue after showing result
     this.time.delayedCall(1000, () => {
-      this.input.once('pointerdown', () => {
-        this.continueGame();
-      });
-
-      this.input.keyboard.once('keydown-SPACE', () => {
-        this.continueGame();
-      });
-
-      this.input.keyboard.once('keydown-ENTER', () => {
+      inputHandler.on('action', () => {
         this.continueGame();
       });
     });
@@ -287,7 +220,7 @@ export class TransformScene extends Phaser.Scene {
   continueGame() {
     audioManager.playConfirm();
 
-    this.cameras.main.fadeOut(500, 26, 26, 26);
+    this.cameras.main.fadeOut(500);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       // Check if game is complete
       if (gameState.isGameComplete()) {

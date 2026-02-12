@@ -1,71 +1,51 @@
-// BootScene - Game Boy style boot sequence
+// BootScene - GameFreak-style logo splash (160x144 native)
 
 import Phaser from 'phaser';
-import { GAME_CONFIG, SCENES } from '../config.js';
+import { GAME, SCENES } from '../config.js';
 import { audioManager } from '../utils/AudioManager.js';
-import { getPalette } from '../utils/GBGraphics.js';
+import { inputHandler } from '../utils/InputHandler.js';
+import { hexToCSS } from '../data/palettes.js';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
     super({ key: SCENES.BOOT });
   }
 
-  preload() {
-    // No external assets needed - using procedural graphics
-  }
-
   create() {
-    const p = getPalette();
-    const { width, height } = this.scale;
-
-    // Initialize audio manager
+    // Initialize audio
     audioManager.init();
+    inputHandler.init(this);
 
-    // Game Boy style boot - starts with lightest color
-    this.cameras.main.setBackgroundColor(p.lightest);
+    // Black screen background
+    this.cameras.main.setBackgroundColor(0x383838);
 
-    // Classic "ding" sound on boot (optional)
-    // audioManager.playConfirm();
-
-    // Nintendo-style logo animation (simplified)
-    const logoText = this.add.text(width / 2, height / 2 - 20, 'LocalNomad', {
-      fontFamily: 'Press Start 2P',
+    // "LocalNomad" text fades in at center
+    const logoText = this.add.text(80, 65, 'LocalNomad', {
+      fontFamily: GAME.FONT,
       fontSize: '8px',
-      color: '#' + p.darkest.toString(16).padStart(6, '0'),
+      color: '#F0E0D0',
     }).setOrigin(0.5).setAlpha(0);
 
-    const presentsText = this.add.text(width / 2, height / 2, 'presents', {
-      fontFamily: 'Press Start 2P',
+    // "presents" text below
+    const presentsText = this.add.text(80, 78, 'presents', {
+      fontFamily: GAME.FONT,
       fontSize: '6px',
-      color: '#' + p.dark.toString(16).padStart(6, '0'),
+      color: '#989898',
     }).setOrigin(0.5).setAlpha(0);
 
     // Fade in sequence
-    this.tweens.add({
-      targets: logoText,
-      alpha: 1,
-      duration: 500,
-      delay: 200,
-    });
+    this.tweens.add({ targets: logoText, alpha: 1, duration: 500, delay: 200 });
+    this.tweens.add({ targets: presentsText, alpha: 1, duration: 500, delay: 500 });
 
-    this.tweens.add({
-      targets: presentsText,
-      alpha: 1,
-      duration: 500,
-      delay: 500,
-    });
-
-    // Proceed to title scene
+    // After 1.5s: vertical wipe to cream, then start TitleScene
     this.time.delayedCall(1500, () => {
-      // Classic wipe transition
-      const wipe = this.add.rectangle(width / 2, 0, width, 0, p.darkest).setOrigin(0.5, 0);
-
+      const wipe = this.add.rectangle(80, 0, 160, 0, 0xF0E0D0).setOrigin(0.5, 0);
       this.tweens.add({
         targets: wipe,
-        height: height,
+        height: 144,
         duration: 300,
-        ease: 'Linear',
         onComplete: () => {
+          inputHandler.destroy();
           this.scene.start(SCENES.TITLE);
         },
       });

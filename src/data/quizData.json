@@ -4,16 +4,20 @@
       "id": 1,
       "npc": "ajumma",
       "npcName": "Restaurant Ajumma",
-      "npcDescription": "Middle-aged woman with curly perm, apron, hands on hips",
-      "dialogue": "Aigoo, you finished eating! How would you like to pay?",
+      "npcDescription": "Middle-aged woman with curly perm, apron, slapping table with wet rag",
+      "dialogueSequence": [
+        "Aigoo~ You ate EVERYTHING! Even the side dishes I refilled 3 times!",
+        "*slaps wet rag on table*\n45,000 won total. Six of you ate."
+      ],
+      "dialogue": "So... who's paying?",
       "choices": [
-        {"id": "A", "text": "Let's split it. I'll pay for what I ordered."},
-        {"id": "B", "text": "Let's divide the total equally among everyone."},
-        {"id": "C", "text": "I got this one! You can get the next round."}
+        {"id": "A", "text": "Let's split it equally on KakaoPay"},
+        {"id": "B", "text": "I'll just pay for what I ordered..."},
+        {"id": "C", "text": "\ub0b4\uac00 \uc3d4! (I got this one!)"}
       ],
       "correct": "C",
-      "wrongFeedback": "In Korea, someone usually treats the whole table! 'I got this one' is the way.",
-      "correctFeedback": "Perfect! Treating others is a big part of Korean dining culture!",
+      "wrongFeedback": "Aigoo~ splitting the bill? In Korea, someone always treats! Next time they'll get you back. That's how we do it!",
+      "correctFeedback": "That's the spirit! \ub0b4\uac00 \uc3d4 culture is how Koreans build deep friendships. They'll get the next one!",
       "transformation": {
         "stage": 1,
         "title": "Fur Shedding!",
@@ -23,17 +27,21 @@
     {
       "id": 2,
       "npc": "worker",
-      "npcName": "Convenience Store Worker",
-      "npcDescription": "Young person in uniform, tired eyes, one earbud in",
-      "dialogue": "That'll be 4,500 won. Do you need a bag?",
+      "npcName": "CU Convenience Store Worker",
+      "npcDescription": "Young person in blue uniform, dead eyes, one earbud dangling",
+      "dialogueSequence": [
+        "*beep* *beep* *beeeep*",
+        "Samgak-gimbap... banana milk... hot bar... That's 4,500 won."
+      ],
+      "dialogue": "Bag?",
       "choices": [
-        {"id": "A", "text": "Yes please, bag it up!"},
-        {"id": "B", "text": "No thanks, I brought my own. *pulls out eco-bag*"},
-        {"id": "C", "text": "*Wait silently for them to pack it*"}
+        {"id": "A", "text": "Yes please!"},
+        {"id": "B", "text": "*pulls eco-bag from mysterious pocket dimension* No thanks."},
+        {"id": "C", "text": "*stare blankly and wait*"}
       ],
       "correct": "B",
-      "wrongFeedback": "Plastic bags cost extra in Korea! Locals always carry eco-bags.",
-      "correctFeedback": "Nice! You're already living that eco-friendly Korean lifestyle!",
+      "wrongFeedback": "Plastic bags cost 100 won in Korea and come with severe judgmental looks from the ajumma behind you. Eco-bags spawn from nowhere!",
+      "correctFeedback": "Every Korean has a crumpled eco-bag materializing from their pocket at the exact moment needed. You're learning!",
       "transformation": {
         "stage": 2,
         "title": "Body Stretching!",
@@ -43,61 +51,75 @@
     {
       "id": 3,
       "npc": "grandma",
-      "npcName": "Subway Grandma",
-      "npcDescription": "Elderly woman in full hiking gear, visor, vest, hiking poles",
-      "dialogue": "*You're standing near the priority seats on a crowded subway*\n*An elderly woman is sitting, but she's staring at you...*\n*She sighs loudly* \"Hmph... young people these days...\"\n\nWhat do you do?",
+      "npcName": "Line 2 Subway Grandma",
+      "npcDescription": "Full Bukhansan hiking gear, visor, vest, hiking poles, tangerine in pocket",
+      "dialogueSequence": [
+        "*Crowded Line 2 subway, rush hour*",
+        "*An ajumma in FULL hiking gear parks next to you*",
+        "*LOUD sigh*\n\uc694\uc998 \uc816\uc740 \uac83\ub4e4... (These days, young people...)"
+      ],
+      "dialogue": "She's eyeing you. What do you do?",
       "choices": [
-        {"id": "A", "text": "Offer her your non-priority seat nearby"},
-        {"id": "B", "text": "Avoid eye contact and pretend to be on your phone"},
-        {"id": "C", "text": "Ask if she needs help with anything"}
+        {"id": "A", "text": "Avoid eye contact, pretend to be asleep"},
+        {"id": "B", "text": "Put on headphones and turn up the K-pop"},
+        {"id": "C", "text": "Excuse me, halmeoni. Can I help you with your bag?"}
       ],
       "correct": "C",
-      "wrongFeedback": "She already has a seat! She might need help with directions or her bags. Koreans often help elders proactively.",
-      "correctFeedback": "Excellent! Proactively helping elders is deeply respected in Korea!",
+      "wrongFeedback": "She was testing you! In Korea, proactively helping elders is deeply respected. You missed a free tangerine opportunity.",
+      "correctFeedback": "She hands you a tangerine from her pocket. This is the highest honor. You've been adopted by a Korean grandma!",
       "transformation": {
         "stage": 3,
         "title": "Tongue Transformation!",
-        "description": "The tiger can no longer pronounce 'TH'!\n\"Three\" → \"Seuree\""
+        "description": "The tiger can no longer pronounce 'TH'!\n\"Three\" \u2192 \"Seuree\""
       }
     },
     {
       "id": 4,
       "npc": "senior",
-      "npcName": "Office Senior",
-      "npcDescription": "Man in wrinkled suit, red face (slightly drunk), loosened tie, holding soju bottle",
-      "dialogue": "Yah! First round is over. Let's go to second round!\n*It's 11 PM. You have an early flight tomorrow.*\n\nWhat do you say?",
+      "npcName": "Team Leader Park",
+      "npcDescription": "Wrinkled suit, loosened tie, red face, empty soju bottles everywhere",
+      "dialogueSequence": [
+        "*It's 11:47 PM on a Tuesday.*\n*Your flight is at 6 AM.*",
+        "*\ud300\uc7a5\ub2d8 slams empty soju bottle*\n*Standing up, swaying slightly*",
+        "1\ucc28 \ub05d\ub0ac\ub2e4! 2\ucc28! \ub178\ub798\ubc29 \uac00\uc790!!\n(Round 1 done! Round 2! KARAOKE!)"
+      ],
+      "dialogue": "Everyone's looking at you. What do you say?",
       "choices": [
-        {"id": "A", "text": "Sorry, I really need to go. I have plans tomorrow."},
-        {"id": "B", "text": "Sure! Where are we going next?"},
-        {"id": "C", "text": "*Check your watch and hesitate* \"Umm... maybe just one more...\""}
+        {"id": "A", "text": "I really should go, I have an early flight..."},
+        {"id": "B", "text": "\ub124! \uac00\uc2dc\uc8e0! (Yes! Let's go!)"},
+        {"id": "C", "text": "*check phone nervously* Maybe... one more hour?"}
       ],
       "correct": "B",
-      "wrongFeedback": "Leaving early? Bold move. In Korean work culture, 회식 (team dinners) are sacred. The correct answer is enthusiastic participation!",
-      "correctFeedback": "That's the spirit! 회식 (hoesik) culture is all about team bonding!",
+      "wrongFeedback": "Leaving early from \ud68c\uc2dd? Bold. In Korean work culture, 2\ucc28 is where real bonding happens. Your promotion just walked out the door.",
+      "correctFeedback": "That's the spirit! \ud68c\uc2dd culture is sacred. You'll sleep on the plane. Your team loyalty rating just went through the roof!",
       "transformation": {
         "stage": 4,
         "title": "Hair Transformation!",
-        "description": "The tiger's hair turned black!"
+        "description": "The tiger's hair turned jet black!"
       }
     },
     {
       "id": 5,
       "npc": "hipster",
-      "npcName": "Hipster Friend",
-      "npcDescription": "Trendy young person, bucket hat, oversized vintage tee, tote bag",
-      "dialogue": "Hey! We're planning a road trip this weekend.\nDon't you NOT like jjimjilbang (Korean spa)?\n\n*You actually LOVE jjimjilbang and want to go!*\n\nHow do you respond?",
+      "npcName": "Seongsu-dong Hipster",
+      "npcDescription": "Bucket hat, oversized vintage tee, oat milk flat white, film camera",
+      "dialogueSequence": [
+        "*Instagram-worthy cafe in Seongsu-dong*\n*Everything is concrete and exposed brick*",
+        "*Friend adjusts bucket hat, takes photo of latte art*"
+      ],
+      "dialogue": "Oh btw, road trip this weekend. Don't you NOT like jjimjilbang?",
       "choices": [
-        {"id": "A", "text": "No, I really like jjimjilbang!"},
-        {"id": "B", "text": "Yes, I really like jjimjilbang!"},
-        {"id": "C", "text": "Jjimjilbang is weird, not in this lifetime."}
+        {"id": "A", "text": "No! I love jjimjilbang!"},
+        {"id": "B", "text": "Yes! I love jjimjilbang!"},
+        {"id": "C", "text": "Jjimjilbang is weird, hard pass."}
       ],
       "correct": "A",
-      "wrongFeedback": "Tricky! In Korean logic, 'Don't you NOT like X?' - answering 'No' means 'No, that's wrong, I DO like it!'",
-      "correctFeedback": "You've mastered Korean double-negative logic! 'No' = 'That's incorrect, I DO like it!'",
+      "wrongFeedback": "Korean double-negative brain twister! \"Don't you NOT like X?\" \u2192 Answering \"No\" = \"No, that's wrong, I DO like it.\" Your brain needs more kimchi.",
+      "correctFeedback": "You've cracked the Korean double-negative code! \"No\" = \"That statement is wrong, I DO like it!\" Your brain is now wired in Korean!",
       "transformation": {
         "stage": 5,
         "title": "Final Transformation!",
-        "description": "The tiger now bows 20 times a day!"
+        "description": "The tiger now bows reflexively 20 times a day!"
       }
     }
   ]

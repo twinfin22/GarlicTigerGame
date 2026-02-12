@@ -1,10 +1,10 @@
 // ShareManager - Handles share functionality
 
-import { GAME_CONFIG } from '../config.js';
+import { BRANDING } from '../config.js';
 
 class ShareManager {
   constructor() {
-    this.gameUrl = GAME_CONFIG.BRANDING.URL;
+    this.gameUrl = BRANDING.URL;
   }
 
   // Check if Web Share API is available

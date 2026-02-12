@@ -1,7 +1,7 @@
-// Garlic Tiger - Main Entry Point
+// Garlic Tiger - Main Entry Point (Pokemon Gold GBC Style)
 
 import Phaser from 'phaser';
-import { GAME_CONFIG, SCENES } from './config.js';
+import { GAME } from './config.js';
 
 // Import all scenes
 import { BootScene } from './scenes/BootScene.js';
@@ -14,25 +14,17 @@ import { GameOverScene } from './scenes/GameOverScene.js';
 import { VictoryScene } from './scenes/VictoryScene.js';
 import { ScrollScene } from './scenes/ScrollScene.js';
 
-// Phaser Game Configuration - Authentic Game Boy dimensions
 const config = {
   type: Phaser.AUTO,
   parent: 'game-container',
-  width: GAME_CONFIG.WIDTH,
-  height: GAME_CONFIG.HEIGHT,
-  backgroundColor: GAME_CONFIG.USE_GREEN_PALETTE ? GAME_CONFIG.COLORS.LIGHTEST : GAME_CONFIG.COLORS.WHITE,
+  width: GAME.WIDTH,   // 160
+  height: GAME.HEIGHT, // 144
+  backgroundColor: 0xF0E0D0,  // Pokemon Gold cream
   pixelArt: true,
+  roundPixels: true,
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    min: {
-      width: 160, // Original Game Boy resolution
-      height: 144,
-    },
-    max: {
-      width: 640, // 4x scale max
-      height: 576,
-    },
   },
   scene: [
     BootScene,
@@ -47,50 +39,31 @@ const config = {
   ],
   physics: {
     default: 'arcade',
-    arcade: {
-      gravity: { y: 0 },
-      debug: false,
-    },
+    arcade: { gravity: { y: 0 }, debug: false },
   },
-  input: {
-    activePointers: 3,
-  },
-  render: {
-    antialias: false,
-    pixelArt: true,
-    roundPixels: true,
-  },
+  input: { activePointers: 3 },
+  render: { antialias: false, pixelArt: true, roundPixels: true },
 };
 
-// Initialize the game when DOM is ready
 window.addEventListener('load', () => {
-  // Create the game instance
   const game = new Phaser.Game(config);
 
-  // Handle visibility changes (pause/resume)
+  // Prevent scroll/bounce on mobile
+  document.addEventListener('touchmove', (e) => {
+    if (e.target.tagName !== 'INPUT') e.preventDefault();
+  }, { passive: false });
+  document.addEventListener('touchend', (e) => {
+    if (e.target.tagName !== 'INPUT') e.preventDefault();
+  }, { passive: false });
+
+  // Pause/resume on visibility change
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      game.scene.scenes.forEach((scene) => {
-        if (scene.scene.isActive()) {
-          scene.scene.pause();
-        }
-      });
+      game.scene.scenes.forEach(s => { if (s.scene.isActive()) s.scene.pause(); });
     } else {
-      game.scene.scenes.forEach((scene) => {
-        if (scene.scene.isPaused()) {
-          scene.scene.resume();
-        }
-      });
+      game.scene.scenes.forEach(s => { if (s.scene.isPaused()) s.scene.resume(); });
     }
   });
 
-  // Prevent context menu on right-click
-  document.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-  });
-
-  // Log game info
-  console.log('🐯 Garlic Tiger v1.0');
-  console.log('🧄 Eat 5 garlics to become Korean!');
-  console.log('📍 localnomad.club');
+  document.addEventListener('contextmenu', e => e.preventDefault());
 });

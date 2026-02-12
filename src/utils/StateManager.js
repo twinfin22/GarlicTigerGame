@@ -1,4 +1,5 @@
-// StateManager - Handles all game state
+// StateManager - Game state management
+
 import { INITIAL_STATE } from '../config.js';
 
 class StateManager {
@@ -6,17 +7,12 @@ class StateManager {
     this.state = { ...INITIAL_STATE };
   }
 
-  // Reset to initial state
   reset() {
-    this.state = { ...INITIAL_STATE };
+    this.state = { ...INITIAL_STATE, defeatedNPCs: [] };
   }
 
-  // Get current state
-  getState() {
-    return { ...this.state };
-  }
+  getState() { return { ...this.state }; }
 
-  // Update state
   setState(updates) {
     this.state = { ...this.state, ...updates };
   }
@@ -28,46 +24,39 @@ class StateManager {
     this.state.currentQuiz++;
   }
 
-  getGarlics() {
-    return this.state.garlicsCollected;
-  }
+  getGarlics() { return this.state.garlicsCollected; }
 
   // Quiz management
-  getCurrentQuizIndex() {
+  getCurrentQuizIndex() { return this.state.currentQuiz; }
+
+  // Transformation stage
+  getTransformationStage() { return this.state.transformationStage; }
+
+  // Walking/encounter management
+  addTilesWalked(count = 1) { this.state.tilesWalked += count; }
+  getTilesWalked() { return this.state.tilesWalked; }
+  resetTilesWalked() { this.state.tilesWalked = 0; }
+
+  // NPC defeat tracking
+  defeatNPC(npcId) {
+    if (!this.state.defeatedNPCs.includes(npcId)) {
+      this.state.defeatedNPCs.push(npcId);
+    }
+  }
+
+  isNPCDefeated(npcId) {
+    return this.state.defeatedNPCs.includes(npcId);
+  }
+
+  getNextUndefeatedNPC() {
+    // Returns the quiz index for the next undefeated NPC
     return this.state.currentQuiz;
   }
 
-  // Transformation stage
-  getTransformationStage() {
-    return this.state.transformationStage;
-  }
-
-  // Walking/encounter management
-  addTilesWalked(count = 1) {
-    this.state.tilesWalked += count;
-  }
-
-  getTilesWalked() {
-    return this.state.tilesWalked;
-  }
-
-  resetTilesWalked() {
-    this.state.tilesWalked = 0;
-  }
-
   // Game flow
-  startGame() {
-    this.state.gameStarted = true;
-  }
-
-  completeGame() {
-    this.state.gameCompleted = true;
-  }
-
-  isGameComplete() {
-    return this.state.garlicsCollected >= 5;
-  }
+  startGame() { this.state.gameStarted = true; }
+  completeGame() { this.state.gameCompleted = true; }
+  isGameComplete() { return this.state.garlicsCollected >= 5; }
 }
 
-// Singleton instance
 export const gameState = new StateManager();

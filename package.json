@@ -23,6 +23,7 @@
     "phaser": "^3.70.0"
   },
   "optionalDependencies": {
-    "@rollup/rollup-darwin-arm64": "^4.55.2"
+    "@rollup/rollup-darwin-arm64": "^4.55.2",
+    "@rollup/rollup-linux-arm64-gnu": "*"
   }
 }

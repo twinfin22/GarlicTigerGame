@@ -1,197 +1,223 @@
-// Tiger - Player character with transformation states
+// Tiger.js - Player character with Pokemon Gold movement
+// 2px/frame, 8 frames per 16px tile, native 160x144 resolution
 
-import { GAME_CONFIG } from '../config.js';
+import { GAME } from '../config.js';
 import { gameState } from '../utils/StateManager.js';
-import { getPalette, drawSprite, SPRITES } from '../utils/GBGraphics.js';
+import { getSpritePalette } from '../data/palettes.js';
+import * as Sprites from '../data/spriteData.js';
+import { drawOverworldSprite } from '../utils/TileRenderer.js';
 
 export class Tiger {
-  constructor(scene, x, y) {
+  constructor(scene, col, row) {
     this.scene = scene;
-    this.x = x;
-    this.y = y;
-    this.sprite = null;
-    this.speed = 2;
-    this.isMoving = false;
-    this.targetX = x;
-    this.targetY = y;
+    this.tileCol = col;
+    this.tileRow = row;
+
+    // Pixel position = tile * 8 (tile size) for top-left of sprite
+    // Sprite is 16x16, centered on a 16x16 area (2x2 tiles)
+    // pixelX/Y represent the top-left corner of the 16x16 sprite
+    this.pixelX = col * 8 - 4; // center the 16px sprite on the tile
+    this.pixelY = row * 8 - 8; // offset up so feet align with tile
+
     this.direction = 'down';
-    this.walkFrame = 0;
+    this.isMoving = false;
+    this.targetX = this.pixelX;
+    this.targetY = this.pixelY;
+
+    this.walkFrame = 0;   // 0-7 during movement (8 frames per tile)
+    this.walkToggle = 0;  // alternates 0/1 each completed step
     this.stepCount = 0;
 
+    this.graphics = null;
     this.create();
   }
 
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
+
   create() {
-    // Create placeholder tiger sprite (will be replaced with actual art)
-    this.sprite = this.scene.add.container(this.x, this.y);
-
-    // Draw placeholder tiger based on transformation stage
-    this.updateSprite();
-  }
-
-  updateSprite() {
-    // Clear existing graphics
-    this.sprite.removeAll(true);
-
-    const stage = gameState.getTransformationStage();
-    const g = this.scene.add.graphics();
-    const p = getPalette();
-
-    // Select sprite based on direction and walk frame
-    let spriteData;
-    const walkFrame = this.walkFrame || 0;
-
-    switch (this.direction) {
-      case 'up':
-        spriteData = SPRITES.TIGER_BACK;
-        break;
-      case 'left':
-      case 'right':
-        spriteData = SPRITES.TIGER_SIDE;
-        break;
-      case 'down':
-      default:
-        // Alternate between walk frames for animation
-        spriteData = walkFrame === 0 ? SPRITES.TIGER_FRONT : SPRITES.TIGER_FRONT_WALK1;
-        break;
-    }
-
-    // Draw the tiger sprite at 2x scale (16x16 * 2 = 32x32)
-    const scale = 2;
-    const offsetX = -16; // Center the 32px wide sprite
-    const offsetY = -16; // Center the 32px tall sprite
-
-    // Apply transformation effects based on stage
-    if (stage >= 4) {
-      // Stage 4+: Black hair - draw with darker palette override
-      this.drawTransformedSprite(g, offsetX, offsetY, spriteData, 16, scale, stage);
-    } else {
-      // Normal tiger sprite
-      drawSprite(g, offsetX, offsetY, spriteData, 16, scale);
-    }
-
-    // Flip sprite horizontally for left direction
-    if (this.direction === 'left') {
-      g.setScale(-1, 1);
-    }
-
-    this.sprite.add(g);
-
-    // Stage 3+: Speech bubble showing pronunciation change
-    if (stage >= 3) {
-      const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
-      const lightestHex = '#' + p.lightest.toString(16).padStart(6, '0');
-
-      const bubble = this.scene.add.graphics();
-      bubble.fillStyle(p.lightest);
-      bubble.fillRect(12, -24, 20, 12);
-      bubble.fillTriangle(12, -18, 12, -12, 8, -15);
-      bubble.lineStyle(1, p.darkest);
-      bubble.strokeRect(12, -24, 20, 12);
-      this.sprite.add(bubble);
-
-      const bubbleText = this.scene.add.text(14, -22, 'TH?', {
-        fontFamily: GAME_CONFIG.FONTS.MAIN,
-        fontSize: '6px',
-        color: darkestHex,
-      });
-      this.sprite.add(bubbleText);
-    }
-  }
-
-  drawTransformedSprite(graphics, x, y, spriteData, width, scale, stage) {
-    const p = getPalette();
-    // Modified palette for transformation stages
-    const colors = [
-      p.darkest,
-      stage >= 4 ? p.darkest : p.dark, // Black hair at stage 4+
-      stage >= 1 ? p.lightest : p.light, // Loses fur at stage 1
-      p.lightest,
-    ];
-
-    spriteData.forEach((colorIdx, i) => {
-      if (colorIdx >= 0) {
-        const px = (i % width) * scale;
-        const py = Math.floor(i / width) * scale;
-        graphics.fillStyle(colors[colorIdx]);
-        graphics.fillRect(x + px, y + py, scale, scale);
-      }
-    });
-  }
-
-  setPosition(x, y) {
-    this.x = x;
-    this.y = y;
-    this.sprite.setPosition(x, y);
-  }
-
-  moveTo(targetX, targetY) {
-    // Determine direction based on movement
-    const dx = targetX - this.x;
-    const dy = targetY - this.y;
-
-    if (Math.abs(dx) > Math.abs(dy)) {
-      this.direction = dx > 0 ? 'right' : 'left';
-    } else {
-      this.direction = dy > 0 ? 'down' : 'up';
-    }
-
-    this.targetX = targetX;
-    this.targetY = targetY;
-    this.isMoving = true;
-
-    // Toggle walk frame for animation
-    this.walkFrame = (this.walkFrame + 1) % 2;
-    this.updateSprite();
-  }
-
-  moveInDirection(direction) {
-    this.direction = direction;
-    const moveAmount = 4;
-
-    switch (direction) {
-      case 'up':
-        this.targetY = this.y - moveAmount;
-        break;
-      case 'down':
-        this.targetY = this.y + moveAmount;
-        break;
-      case 'left':
-        this.targetX = this.x - moveAmount;
-        break;
-      case 'right':
-        this.targetX = this.x + moveAmount;
-        break;
-    }
-    this.isMoving = true;
-  }
-
-  update() {
-    if (!this.isMoving) return false;
-
-    const dx = this.targetX - this.x;
-    const dy = this.targetY - this.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    if (distance < this.speed) {
-      this.x = this.targetX;
-      this.y = this.targetY;
-      this.isMoving = false;
-      this.sprite.setPosition(this.x, this.y);
-      return true; // Arrived at destination
-    }
-
-    const vx = (dx / distance) * this.speed;
-    const vy = (dy / distance) * this.speed;
-
-    this.x += vx;
-    this.y += vy;
-    this.sprite.setPosition(this.x, this.y);
-
-    return false; // Still moving
+    this.graphics = this.scene.add.graphics();
+    this.render();
   }
 
   destroy() {
-    this.sprite.destroy();
+    if (this.graphics) {
+      this.graphics.destroy();
+      this.graphics = null;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rendering
+  // ---------------------------------------------------------------------------
+
+  render() {
+    if (!this.graphics) return;
+    this.graphics.clear();
+
+    const stage = gameState.getTransformationStage();
+    const spriteData = this._getSpriteFrame();
+    const palette = this._getPalette(stage);
+
+    // Draw at local origin (0,0); position via graphics.setPosition
+    drawOverworldSprite(this.graphics, 0, 0, spriteData, palette);
+
+    // Flip horizontally for left direction
+    if (this.direction === 'left') {
+      this.graphics.setScale(-1, 1);
+      this.graphics.setPosition(this.pixelX + 16, this.pixelY);
+    } else {
+      this.graphics.setScale(1, 1);
+      this.graphics.setPosition(this.pixelX, this.pixelY);
+    }
+  }
+
+  /**
+   * Walk cycle per direction:
+   *   Tile is 8px, speed is 2px/frame → 4 frames per tile.
+   *   walkFrame 0-1 -> walkA sprite
+   *   walkFrame 2-3 -> walkB sprite
+   * Standing still -> base (standing) frame.
+   */
+  _getSpriteFrame() {
+    if (!this.isMoving) {
+      switch (this.direction) {
+        case 'up':
+          return Sprites.TIGER_BACK;
+        case 'left':
+        case 'right':
+          return Sprites.TIGER_SIDE;
+        case 'down':
+        default:
+          return Sprites.TIGER_FRONT;
+      }
+    }
+
+    // During movement: alternate walk sprites
+    // 4 frames per tile (8px at 2px/frame): frames 0-1 walkA, frames 2-3 walkB
+    const useWalkB = this.walkFrame >= 2;
+
+    switch (this.direction) {
+      case 'down':
+        return useWalkB ? Sprites.TIGER_FRONT_WALK2 : Sprites.TIGER_FRONT_WALK1;
+      case 'up':
+        return useWalkB ? Sprites.TIGER_BACK_WALK2 : Sprites.TIGER_BACK_WALK1;
+      case 'left':
+      case 'right':
+        return useWalkB ? Sprites.TIGER_SIDE_WALK2 : Sprites.TIGER_SIDE_WALK1;
+      default:
+        return Sprites.TIGER_FRONT;
+    }
+  }
+
+  /**
+   * Build a palette with transformation-stage modifications.
+   * Base palette = TIGER sprite palette from palettes.js.
+   * Stage 1+: lighter skin (losing fur)
+   * Stage 4+: black hair
+   */
+  _getPalette(stage) {
+    const base = getSpritePalette('TIGER');
+    const colors = [...base.colors];
+
+    if (stage >= 1) colors[2] = 0xF8F8F8; // Lighter skin (losing fur)
+    if (stage >= 4) colors[1] = 0x383838; // Black hair
+
+    return { colors };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tile-aligned movement
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Begin a one-tile move in the given direction.
+   * Returns false if the tiger is already mid-move.
+   * The caller is responsible for collision checks before calling this.
+   */
+  startMove(direction) {
+    if (this.isMoving) return false;
+
+    this.direction = direction;
+
+    // Calculate next tile
+    let nextCol = this.tileCol;
+    let nextRow = this.tileRow;
+    switch (direction) {
+      case 'up':    nextRow--; break;
+      case 'down':  nextRow++; break;
+      case 'left':  nextCol--; break;
+      case 'right': nextCol++; break;
+    }
+
+    // Commit to the new tile position immediately
+    this.tileCol = nextCol;
+    this.tileRow = nextRow;
+    this.targetX = nextCol * 8 - 4;
+    this.targetY = nextRow * 8 - 8;
+
+    this.isMoving = true;
+    this.walkFrame = 0;
+    this.walkToggle = (this.walkToggle + 1) % 2;
+
+    this.render();
+    return true;
+  }
+
+  /**
+   * Call every frame. Moves 2px toward the target tile.
+   * Returns true on the frame the tiger arrives at the target.
+   */
+  update() {
+    if (!this.isMoving) return false;
+
+    const speed = GAME.WALK_PX_PER_FRAME; // 2
+    const dx = this.targetX - this.pixelX;
+    const dy = this.targetY - this.pixelY;
+
+    if (Math.abs(dx) <= speed && Math.abs(dy) <= speed) {
+      // Snap to target
+      this.pixelX = this.targetX;
+      this.pixelY = this.targetY;
+      this.isMoving = false;
+      this.walkFrame = 0;
+      this.stepCount++;
+      this.render();
+      return true; // arrived
+    }
+
+    // Move toward target (only one axis at a time for tile-aligned movement)
+    if (dx !== 0) {
+      this.pixelX += Math.sign(dx) * speed;
+    } else if (dy !== 0) {
+      this.pixelY += Math.sign(dy) * speed;
+    }
+
+    this.walkFrame++;
+
+    this.render();
+    return false;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Position helpers
+  // ---------------------------------------------------------------------------
+
+  /** World center position (for camera targeting) */
+  getCenterX() { return this.pixelX + 8; }
+  getCenterY() { return this.pixelY + 8; }
+
+  /** Teleport to a tile position without animation */
+  setPosition(col, row) {
+    this.tileCol = col;
+    this.tileRow = row;
+    this.pixelX = col * 8 - 4;
+    this.pixelY = row * 8 - 8;
+    this.targetX = this.pixelX;
+    this.targetY = this.pixelY;
+    this.isMoving = false;
+    this.walkFrame = 0;
+    this.render();
   }
 }

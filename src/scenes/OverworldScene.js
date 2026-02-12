@@ -1,568 +1,734 @@
-// OverworldScene - Top-down map of Korea with tiger movement
+// OverworldScene - Scrolling 32x32 Pokemon Gold GBC-style overworld
+// Native 160x144 resolution, 8px tiles, 16px sprites
+// Manual camera offset (no Phaser camera scroll), swipe/tap/keyboard input
 
 import Phaser from 'phaser';
-import { GAME_CONFIG, SCENES } from '../config.js';
+import { GAME, SCENES } from '../config.js';
 import { Tiger } from '../objects/Tiger.js';
+import { NPC } from '../objects/NPC.js';
 import { audioManager } from '../utils/AudioManager.js';
 import { gameState } from '../utils/StateManager.js';
-import { getPalette, drawSprite, SPRITES } from '../utils/GBGraphics.js';
+import { inputHandler } from '../utils/InputHandler.js';
+import { MAP, NPC_SPAWNS, PLAYER_START, TERRAIN, generateMapData, isTallGrass, isWalkable } from '../data/mapData.js';
+import { renderViewport, drawGarlicCounter, createBattleTransition, drawMenuBox, drawCursor } from '../utils/TileRenderer.js';
+import { BG_PALETTES, hexToCSS } from '../data/palettes.js';
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const SCREEN_W = GAME.WIDTH;   // 160
+const SCREEN_H = GAME.HEIGHT;  // 144
+const TILE = GAME.TILE;        // 8
+const MIN_STEPS = GAME.ENCOUNTER_MIN_STEPS;    // 3
+const ENCOUNTER_CHANCE = GAME.ENCOUNTER_CHANCE; // 0.25
+const TOTAL_GARLICS = GAME.TOTAL_GARLICS;      // 5
+
+// Menu items
+const MENU_ITEMS = ['TIGER', 'GARLIC', 'EXIT'];
+
+// ---------------------------------------------------------------------------
+// OverworldScene
+// ---------------------------------------------------------------------------
 
 export class OverworldScene extends Phaser.Scene {
   constructor() {
     super({ key: SCENES.OVERWORLD });
-    this.tiger = null;
-    this.cursors = null;
-    this.tilesMoved = 0;
-    this.garlicCounterText = null;
-    this.isTransitioning = false;
-    this.touchStartPos = null;
-    this.virtualDPad = null;
   }
+
+  // =========================================================================
+  // Lifecycle
+  // =========================================================================
 
   create() {
-    const { width, height } = this.scale;
-    const p = getPalette();
-    const { COLORS } = GAME_CONFIG;
+    // Ensure collision/tallGrass arrays are generated
+    generateMapData();
 
+    // --- State ---
     this.isTransitioning = false;
-    gameState.resetTilesWalked();
+    this.stepsInGrass = 0;
+    this.menuOpen = false;
+    this.menuCursor = 0;
+    this.dialogueActive = false;
+    this.dialogueText = '';
+    this.dialogueCallback = null;
+    this.animFrame = 0;
+    this.animTimer = 0;
+    this._lastDialogueText = null;
 
-    // Background - BRIGHT green like Pokemon!
-    this.cameras.main.setBackgroundColor(COLORS.GRASS_LIGHT);
+    // --- Camera ---
+    this.cameraX = 0;
+    this.cameraY = 0;
+
+    // --- Graphics layers ---
+    // These get cleared and redrawn each frame
+    this.viewportGraphics = null;
+    this.hudGraphics = null;
+    this.menuGraphics = null;
+    this.dialogueGraphics = null;
+
+    // --- Tiger ---
+    this.tiger = new Tiger(this, PLAYER_START.col, PLAYER_START.row);
+
+    // --- NPCs ---
+    this.npcs = NPC_SPAWNS.map(spawn => new NPC(this, spawn));
+
+    // Update NPC collision entries in the map
+    this._updateNPCCollisions();
+
+    // --- Initial camera position ---
+    this._updateCamera();
+
+    // --- Input ---
+    inputHandler.init(this);
+    this._onMoveHandler = (dir) => this._handleMove(dir);
+    this._onActionHandler = () => this._handleAction();
+    this._onMenuHandler = () => this._handleMenu();
+    inputHandler.on('move', this._onMoveHandler);
+    inputHandler.on('action', this._onActionHandler);
+    inputHandler.on('menu', this._onMenuHandler);
+
+    // --- HUD: garlic counter ---
+    this._createHUD();
+
+    // --- Initial render ---
+    this._renderFrame();
+
+    // Fade in
     this.cameras.main.fadeIn(300);
-
-    // Draw the map with bright procedural tiles
-    this.drawMap();
-
-    // Create tiger at center
-    this.tiger = new Tiger(this, width / 2, height / 2);
-
-    // Create UI
-    this.createUI();
-
-    // Create virtual D-pad for mobile
-    this.createVirtualDPad();
-
-    // Keyboard controls
-    this.cursors = this.input.keyboard.createCursorKeys();
-
-    // Touch/click to move
-    this.input.on('pointerdown', (pointer) => {
-      if (pointer.y < height - 120) { // Not on D-pad area
-        this.touchStartPos = { x: pointer.x, y: pointer.y };
-      }
-    });
-
-    this.input.on('pointerup', (pointer) => {
-      if (this.touchStartPos && pointer.y < height - 120) {
-        const dx = pointer.x - this.touchStartPos.x;
-        const dy = pointer.y - this.touchStartPos.y;
-
-        // Swipe detection
-        if (Math.abs(dx) > 20 || Math.abs(dy) > 20) {
-          if (Math.abs(dx) > Math.abs(dy)) {
-            this.moveTiger(dx > 0 ? 'right' : 'left');
-          } else {
-            this.moveTiger(dy > 0 ? 'down' : 'up');
-          }
-        }
-      }
-      this.touchStartPos = null;
-    });
-
-    // Instructions text - white box with black text (Pokemon style)
-    const instructionBg = this.add.graphics();
-    instructionBg.fillStyle(0xffffff);
-    instructionBg.fillRect(width / 2 - 70, 35, 140, 24);
-    instructionBg.lineStyle(2, 0x000000);
-    instructionBg.strokeRect(width / 2 - 70, 35, 140, 24);
-
-    this.add.text(width / 2, 47, 'Explore Korea!', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '10px',
-      color: '#000000',
-    }).setOrigin(0.5);
   }
 
-  update() {
+  update(time, delta) {
     if (this.isTransitioning) return;
 
-    // Keyboard movement
-    if (this.cursors.left.isDown) {
-      this.moveTiger('left');
-    } else if (this.cursors.right.isDown) {
-      this.moveTiger('right');
-    } else if (this.cursors.up.isDown) {
-      this.moveTiger('up');
-    } else if (this.cursors.down.isDown) {
-      this.moveTiger('down');
+    // Animate water/tall grass tiles
+    this.animTimer += delta;
+    if (this.animTimer > 500) {
+      this.animTimer -= 500;
+      this.animFrame = (this.animFrame + 1) % 2;
     }
 
-    // Update tiger and check for movement completion
-    if (this.tiger.update()) {
-      this.onTileMoved();
+    // Handle keyboard movement (inputHandler.update emits 'move' for held keys)
+    if (!this.menuOpen && !this.dialogueActive) {
+      inputHandler.update();
+    }
+
+    // Update NPCs (random facing)
+    for (const npc of this.npcs) {
+      npc.update();
+    }
+
+    // Advance tiger animation
+    const arrived = this.tiger.update();
+    if (arrived) {
+      this._onTileArrived();
+    }
+
+    // Update camera to follow tiger
+    this._updateCamera();
+
+    // Redraw the frame
+    this._renderFrame();
+  }
+
+  shutdown() {
+    this._cleanup();
+  }
+
+  // Called when scene is stopped or switched away
+  destroy() {
+    this._cleanup();
+  }
+
+  _cleanup() {
+    // Remove input listeners
+    inputHandler.off('move', this._onMoveHandler);
+    inputHandler.off('action', this._onActionHandler);
+    inputHandler.off('menu', this._onMenuHandler);
+    inputHandler.destroy();
+
+    // Destroy tiger
+    if (this.tiger) {
+      this.tiger.destroy();
+      this.tiger = null;
+    }
+
+    // Destroy NPCs
+    if (this.npcs) {
+      for (const npc of this.npcs) {
+        npc.destroy();
+      }
+      this.npcs = [];
+    }
+
+    // Destroy graphics layers
+    if (this.viewportGraphics) {
+      this.viewportGraphics.destroy();
+      this.viewportGraphics = null;
+    }
+    if (this.hudGraphics) {
+      this.hudGraphics.destroy();
+      this.hudGraphics = null;
+    }
+    this._destroyMenu();
+    this._destroyDialogue();
+    if (this.garlicContainer) {
+      this.garlicContainer.destroy();
+      this.garlicContainer = null;
     }
   }
 
-  moveTiger(direction) {
-    if (this.tiger.isMoving || this.isTransitioning) return;
+  // =========================================================================
+  // Camera
+  // =========================================================================
 
-    const { width, height } = this.scale;
-    const padding = 40;
+  _updateCamera() {
+    if (!this.tiger) return;
 
-    // Calculate new position
-    let newX = this.tiger.x;
-    let newY = this.tiger.y;
-    const moveAmount = 16;
+    // Center camera on tiger
+    let cx = this.tiger.getCenterX() - Math.floor(SCREEN_W / 2);
+    let cy = this.tiger.getCenterY() - Math.floor(SCREEN_H / 2);
 
-    switch (direction) {
-      case 'up':
-        newY -= moveAmount;
-        break;
-      case 'down':
-        newY += moveAmount;
-        break;
-      case 'left':
-        newX -= moveAmount;
-        break;
-      case 'right':
-        newX += moveAmount;
-        break;
-    }
+    // Clamp to map bounds
+    const maxX = MAP.width * TILE - SCREEN_W;
+    const maxY = MAP.height * TILE - SCREEN_H;
+    cx = Math.max(0, Math.min(cx, maxX));
+    cy = Math.max(0, Math.min(cy, maxY));
 
-    // Boundary check - allow movement in the playable area
-    if (newX < padding || newX > width - padding ||
-        newY < 80 || newY > height - 80) {
+    this.cameraX = cx;
+    this.cameraY = cy;
+  }
+
+  // =========================================================================
+  // Input Handlers
+  // =========================================================================
+
+  _handleMove(direction) {
+    if (this.isTransitioning) return;
+
+    // Menu navigation
+    if (this.menuOpen) {
+      if (direction === 'up') {
+        this.menuCursor = (this.menuCursor - 1 + MENU_ITEMS.length) % MENU_ITEMS.length;
+        audioManager.playSelect();
+      } else if (direction === 'down') {
+        this.menuCursor = (this.menuCursor + 1) % MENU_ITEMS.length;
+        audioManager.playSelect();
+      }
       return;
     }
 
-    this.tiger.moveTo(newX, newY);
+    // Dialogue active: ignore movement
+    if (this.dialogueActive) return;
+
+    // Overworld movement
+    this._tryMove(direction);
+  }
+
+  _handleAction() {
+    if (this.isTransitioning) return;
+
+    // Menu selection
+    if (this.menuOpen) {
+      this._selectMenuItem();
+      return;
+    }
+
+    // Dismiss dialogue
+    if (this.dialogueActive) {
+      this._dismissDialogue();
+      return;
+    }
+
+    // Interact with adjacent NPC
+    this._tryNPCInteraction();
+  }
+
+  _handleMenu() {
+    if (this.isTransitioning) return;
+
+    // Close dialogue first
+    if (this.dialogueActive) {
+      this._dismissDialogue();
+      return;
+    }
+
+    // Toggle menu
+    if (this.menuOpen) {
+      this._closeMenu();
+    } else {
+      this._openMenu();
+    }
+  }
+
+  // =========================================================================
+  // Movement & Collision
+  // =========================================================================
+
+  _tryMove(direction) {
+    if (!this.tiger || this.tiger.isMoving || this.isTransitioning) return;
+
+    const nextCol = this.tiger.tileCol + (direction === 'left' ? -1 : direction === 'right' ? 1 : 0);
+    const nextRow = this.tiger.tileRow + (direction === 'up' ? -1 : direction === 'down' ? 1 : 0);
+
+    // Check map bounds
+    if (nextCol < 0 || nextCol >= MAP.width || nextRow < 0 || nextRow >= MAP.height) {
+      this.tiger.direction = direction;
+      this.tiger.render();
+      return;
+    }
+
+    // Check terrain collision
+    if (!isWalkable(nextCol, nextRow)) {
+      this.tiger.direction = direction;
+      this.tiger.render();
+      return;
+    }
+
+    // Check NPC collision
+    if (this.npcs.some(npc => npc.tileCol === nextCol && npc.tileRow === nextRow)) {
+      this.tiger.direction = direction;
+      this.tiger.render();
+      return;
+    }
+
+    this.tiger.startMove(direction);
     audioManager.playWalk();
   }
 
-  onTileMoved() {
-    gameState.addTilesWalked();
-    const tilesWalked = gameState.getTilesWalked();
+  // =========================================================================
+  // Encounter System
+  // =========================================================================
 
-    // Check for random encounter
-    const encounterThreshold = GAME_CONFIG.SETTINGS.TILES_BEFORE_ENCOUNTER;
-    const encounterChance = Math.min((tilesWalked - encounterThreshold + 5) / 10, 0.8);
+  _onTileArrived() {
+    const col = this.tiger.tileCol;
+    const row = this.tiger.tileRow;
 
-    if (tilesWalked >= encounterThreshold - 3 && Math.random() < encounterChance) {
-      this.triggerEncounter();
+    // Track walked tiles
+    gameState.addTilesWalked(1);
+
+    // Check if game is complete (5 garlics) -> victory
+    if (gameState.isGameComplete()) {
+      this.isTransitioning = true;
+      audioManager.playVictory();
+      createBattleTransition(this, () => {
+        this.scene.start(SCENES.VICTORY);
+      });
+      return;
+    }
+
+    // Check tall grass encounters
+    if (isTallGrass(col, row)) {
+      this.stepsInGrass++;
+
+      if (this.stepsInGrass >= MIN_STEPS) {
+        if (Math.random() < ENCOUNTER_CHANCE) {
+          this._triggerEncounter();
+        }
+      }
+    } else {
+      // Reset grass counter when leaving tall grass
+      this.stepsInGrass = 0;
     }
   }
 
-  triggerEncounter() {
+  _triggerEncounter() {
     if (this.isTransitioning) return;
     this.isTransitioning = true;
+    this.stepsInGrass = 0;
 
-    audioManager.playSelect();
-    gameState.resetTilesWalked();
+    audioManager.playEncounter();
 
-    // Pokemon-style battle transition
-    this.battleTransition();
-  }
-
-  battleTransition() {
-    const { width, height } = this.scale;
-    const p = getPalette();
-
-    // Create horizontal line wipe effect (Pokemon style)
-    const lines = [];
-    const lineCount = 20;
-    const lineHeight = height / lineCount;
-
-    for (let i = 0; i < lineCount; i++) {
-      const line = this.add.rectangle(
-        i % 2 === 0 ? -width : width * 2,
-        i * lineHeight + lineHeight / 2,
-        width,
-        lineHeight,
-        p.darkest
-      );
-      lines.push(line);
-
-      this.tweens.add({
-        targets: line,
-        x: width / 2,
-        duration: 300,
-        delay: i * 20,
-        ease: 'Linear', // Step-like feel
-      });
-    }
-
-    // Transition to quiz after animation
-    this.time.delayedCall(600, () => {
-      console.log('Battle transition complete, starting QuizScene...');
+    createBattleTransition(this, () => {
       this.scene.start(SCENES.QUIZ);
     });
   }
 
-  drawMap() {
-    const { width, height } = this.scale;
+  // =========================================================================
+  // NPC Interaction
+  // =========================================================================
 
-    // Draw bright procedural background (no tilesets needed)
-    this.drawProceduralBackground();
+  _tryNPCInteraction() {
+    if (!this.tiger) return;
 
-    // Draw map elements on top
-    this.drawNamsanTower(width - 60, 120);
-    this.drawHanRiver(width / 2, height / 2 - 30);
-    this.drawConvenienceStore(80, 180);
-    this.drawSubwayEntrance(width - 100, height - 180);
-    this.drawNeonSigns(150, 320);
-    this.drawProceduralBuildings();
-    this.drawProceduralTrees();
+    // Find adjacent NPC the tiger is facing
+    const facingNPC = this.npcs.find(npc => npc.isAdjacentTo(this.tiger));
+    if (!facingNPC) return;
+
+    audioManager.playConfirm();
+
+    // Check if already defeated
+    if (facingNPC.isDefeated()) {
+      this._showDialogue('Already proved\nyourself here!');
+      return;
+    }
+
+    // Trigger NPC quiz encounter
+    this.isTransitioning = true;
+
+    audioManager.playEncounter();
+
+    createBattleTransition(this, () => {
+      this.scene.start(SCENES.QUIZ);
+    });
   }
 
-  drawProceduralBackground() {
-    const { width, height } = this.scale;
-    const { COLORS } = GAME_CONFIG;
-    const g = this.add.graphics();
-    const tileSize = 16;
+  // =========================================================================
+  // NPC Collision Helpers
+  // =========================================================================
 
-    // Draw grass pattern - bright green with subtle variation
-    for (let y = 0; y < height; y += tileSize) {
-      for (let x = 0; x < width; x += tileSize) {
-        // Alternate between two shades for texture
-        const shade = ((x / tileSize) + (y / tileSize)) % 2 === 0;
-        g.fillStyle(shade ? COLORS.GRASS_LIGHT : 0x7ed87e);
-        g.fillRect(x, y, tileSize, tileSize);
+  /**
+   * Mark NPC tile positions in the collision map so the player
+   * cannot walk through them. Called once during create().
+   * Note: NPCs are stationary, so this only needs to run once.
+   */
+  _updateNPCCollisions() {
+    for (const npc of this.npcs) {
+      const idx = npc.tileRow * MAP.width + npc.tileCol;
+      if (idx >= 0 && idx < MAP.collision.length) {
+        MAP.collision[idx] = 1;
+      }
+    }
+  }
 
-        // Add small grass detail marks
-        if (Math.random() > 0.7) {
-          g.fillStyle(COLORS.GRASS_DARK);
-          g.fillRect(x + 4, y + 8, 2, 4);
-          g.fillRect(x + 10, y + 6, 2, 4);
+  // =========================================================================
+  // START Menu
+  // =========================================================================
+
+  _openMenu() {
+    this.menuOpen = true;
+    this.menuCursor = 0;
+    audioManager.playSelect();
+  }
+
+  _closeMenu() {
+    this.menuOpen = false;
+    audioManager.playSelect();
+  }
+
+  _selectMenuItem() {
+    const item = MENU_ITEMS[this.menuCursor];
+    audioManager.playConfirm();
+
+    switch (item) {
+      case 'TIGER': {
+        const stage = gameState.getTransformationStage();
+        const stageNames = [
+          'Wild Tiger',
+          'Fur Shedding',
+          'Growing Taller',
+          'Losing TH',
+          'Black Hair',
+          'Full Korean',
+        ];
+        const name = stageNames[stage] || 'Wild Tiger';
+        this._closeMenu();
+        this._showDialogue(`Stage: ${name}`);
+        break;
+      }
+      case 'GARLIC': {
+        const count = gameState.getGarlics();
+        this._closeMenu();
+        this._showDialogue(`Garlics: ${count}/${TOTAL_GARLICS}`);
+        break;
+      }
+      case 'EXIT':
+        this._closeMenu();
+        break;
+    }
+  }
+
+  // =========================================================================
+  // Dialogue
+  // =========================================================================
+
+  _showDialogue(text, callback) {
+    this.dialogueActive = true;
+    this.dialogueText = text;
+    this.dialogueCallback = callback || null;
+  }
+
+  _dismissDialogue() {
+    this.dialogueActive = false;
+    this.dialogueText = '';
+    this._destroyDialogue();
+    if (this.dialogueCallback) {
+      const cb = this.dialogueCallback;
+      this.dialogueCallback = null;
+      cb();
+    }
+  }
+
+  // =========================================================================
+  // HUD
+  // =========================================================================
+
+  _createHUD() {
+    const garlicCount = gameState.getGarlics();
+    const { container, text } = drawGarlicCounter(
+      this, SCREEN_W - 22, 8, garlicCount, TOTAL_GARLICS
+    );
+    this.garlicContainer = container;
+    this.garlicText = text;
+
+    // Ensure HUD is always on top
+    this.garlicContainer.setDepth(100);
+  }
+
+  _updateHUD() {
+    if (this.garlicText) {
+      const count = gameState.getGarlics();
+      this.garlicText.setText(`${count}/${TOTAL_GARLICS}`);
+    }
+  }
+
+  // =========================================================================
+  // Rendering
+  // =========================================================================
+
+  /**
+   * Master render function called every frame.
+   * Clears and redraws all layers in correct z-order:
+   * 1. Viewport (terrain tiles)
+   * 2. NPCs (at camera-offset positions)
+   * 3. Tiger (at camera-offset position)
+   * 4. HUD (garlic counter at fixed screen position)
+   * 5. Menu overlay (if open)
+   * 6. Dialogue overlay (if active)
+   */
+  _renderFrame() {
+    // --- 1. Viewport (terrain tiles) ---
+    if (this.viewportGraphics) {
+      this.viewportGraphics.destroy();
+      this.viewportGraphics = null;
+    }
+    this.viewportGraphics = renderViewport(this, MAP, this.cameraX, this.cameraY, this.animFrame);
+    this.viewportGraphics.setDepth(0);
+
+    // --- 2. NPCs ---
+    for (const npc of this.npcs) {
+      if (npc.isVisible(this.cameraX, this.cameraY)) {
+        const screenX = npc.pixelX - this.cameraX;
+        const screenY = npc.pixelY - this.cameraY;
+
+        if (npc.direction === 'left') {
+          npc.graphics.setScale(-1, 1);
+          npc.graphics.setPosition(screenX + 16, screenY);
+        } else {
+          npc.graphics.setScale(1, 1);
+          npc.graphics.setPosition(screenX, screenY);
         }
+
+        npc.graphics.setDepth(10);
+        npc.graphics.setVisible(true);
+      } else {
+        npc.graphics.setVisible(false);
       }
     }
 
-    // Draw paths - tan/brown crossing paths
-    this.drawProceduralPaths(g);
-  }
+    // --- 3. Tiger ---
+    if (this.tiger && this.tiger.graphics) {
+      const tigerScreenX = this.tiger.pixelX - this.cameraX;
+      const tigerScreenY = this.tiger.pixelY - this.cameraY;
 
-  drawProceduralPaths(g) {
-    const { width, height } = this.scale;
-    const { COLORS } = GAME_CONFIG;
-    const pathWidth = 24;
-
-    // Horizontal main path
-    const pathY = height / 2 - pathWidth / 2;
-    g.fillStyle(COLORS.PATH);
-    g.fillRect(30, pathY, width - 60, pathWidth);
-
-    // Path border (darker)
-    g.fillStyle(0xb8956e);
-    g.fillRect(30, pathY, width - 60, 2);
-    g.fillRect(30, pathY + pathWidth - 2, width - 60, 2);
-
-    // Vertical crossing path
-    const pathX = width / 2 - pathWidth / 2;
-    g.fillStyle(COLORS.PATH);
-    g.fillRect(pathX, 70, pathWidth, height - 150);
-
-    // Path border
-    g.fillStyle(0xb8956e);
-    g.fillRect(pathX, 70, 2, height - 150);
-    g.fillRect(pathX + pathWidth - 2, 70, 2, height - 150);
-  }
-
-  drawProceduralTrees() {
-    const { width, height } = this.scale;
-    const { COLORS } = GAME_CONFIG;
-
-    // Tree positions around edges
-    const treePositions = [
-      { x: 25, y: 100 },
-      { x: 45, y: 200 },
-      { x: 280, y: 95 },
-      { x: 285, y: 195 },
-      { x: 20, y: height - 120 },
-      { x: 290, y: height - 115 },
-    ];
-
-    treePositions.forEach(pos => {
-      const g = this.add.graphics();
-
-      // Tree trunk (brown)
-      g.fillStyle(0x8b4513);
-      g.fillRect(pos.x + 10, pos.y + 20, 12, 20);
-
-      // Tree foliage (layered circles for Pokemon style)
-      g.fillStyle(COLORS.TREE_GREEN);
-      g.fillCircle(pos.x + 16, pos.y, 18);
-      g.fillCircle(pos.x + 8, pos.y + 10, 14);
-      g.fillCircle(pos.x + 24, pos.y + 10, 14);
-
-      // Highlight
-      g.fillStyle(0x32cd32);
-      g.fillCircle(pos.x + 12, pos.y - 5, 8);
-    });
-  }
-
-  drawProceduralBuildings() {
-    const { COLORS } = GAME_CONFIG;
-
-    // Building positions
-    const buildings = [
-      { x: 60, y: 70, w: 50, h: 40 },
-      { x: 230, y: 200, w: 60, h: 45 },
-    ];
-
-    buildings.forEach(b => {
-      const g = this.add.graphics();
-
-      // Building body (white/cream)
-      g.fillStyle(0xffffff);
-      g.fillRect(b.x, b.y, b.w, b.h);
-
-      // Roof (red like Pokemon)
-      g.fillStyle(COLORS.ROOF_RED);
-      g.fillTriangle(
-        b.x - 5, b.y,
-        b.x + b.w / 2, b.y - 20,
-        b.x + b.w + 5, b.y
-      );
-
-      // Door
-      g.fillStyle(0x8b4513);
-      g.fillRect(b.x + b.w / 2 - 8, b.y + b.h - 25, 16, 25);
-
-      // Windows
-      g.fillStyle(COLORS.WATER);
-      g.fillRect(b.x + 8, b.y + 10, 12, 12);
-      g.fillRect(b.x + b.w - 20, b.y + 10, 12, 12);
-
-      // Black border
-      g.lineStyle(2, 0x000000);
-      g.strokeRect(b.x, b.y, b.w, b.h);
-    });
-  }
-
-  drawNamsanTower(x, y) {
-    const g = this.add.graphics();
-
-    // Tower base (gray concrete)
-    g.fillStyle(0x808080);
-    g.fillRect(x - 15, y + 20, 30, 40);
-
-    // Tower body (white)
-    g.fillStyle(0xffffff);
-    g.fillRect(x - 8, y - 40, 16, 60);
-    g.lineStyle(1, 0x000000);
-    g.strokeRect(x - 8, y - 40, 16, 60);
-
-    // Tower top (red observation deck)
-    g.fillStyle(0xff6b6b);
-    g.fillRect(x - 12, y - 20, 24, 15);
-
-    // Antenna (white with red tip)
-    g.fillStyle(0xffffff);
-    g.fillRect(x - 1, y - 70, 2, 30);
-    g.fillStyle(0xff0000);
-    g.fillRect(x - 2, y - 75, 4, 8);
-
-    // Label
-    this.add.text(x, y + 70, 'N Tower', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '8px',
-      color: '#000000',
-    }).setOrigin(0.5);
-  }
-
-  drawHanRiver(x, y) {
-    const { width } = this.scale;
-    const { COLORS } = GAME_CONFIG;
-    const g = this.add.graphics();
-
-    // River - bright blue water
-    g.fillStyle(COLORS.WATER);
-    g.fillRect(0, y, width, 32);
-
-    // Water wave pattern
-    g.fillStyle(0x6bb3d9);
-    for (let wx = 0; wx < width; wx += 20) {
-      g.fillRect(wx, y + 8, 10, 2);
-      g.fillRect(wx + 5, y + 20, 10, 2);
+      if (this.tiger.direction === 'left') {
+        this.tiger.graphics.setScale(-1, 1);
+        this.tiger.graphics.setPosition(tigerScreenX + 16, tigerScreenY);
+      } else {
+        this.tiger.graphics.setScale(1, 1);
+        this.tiger.graphics.setPosition(tigerScreenX, tigerScreenY);
+      }
+      this.tiger.graphics.setDepth(10);
     }
 
-    // Bridge
-    g.fillStyle(0xd2b48c);
-    g.fillRect(x - 45, y - 5, 90, 42);
-    g.lineStyle(2, 0x000000);
-    g.strokeRect(x - 45, y - 5, 90, 42);
-
-    // Bridge arches
-    g.fillStyle(0x8b4513);
-    g.fillRect(x - 35, y + 10, 20, 20);
-    g.fillRect(x + 15, y + 10, 20, 20);
-  }
-
-  drawConvenienceStore(x, y) {
-    const g = this.add.graphics();
-
-    // Building - white with red accent
-    g.fillStyle(0xffffff);
-    g.fillRect(x - 30, y - 25, 60, 50);
-    g.lineStyle(2, 0x000000);
-    g.strokeRect(x - 30, y - 25, 60, 50);
-
-    // Red stripe (CU branding)
-    g.fillStyle(0xff6b6b);
-    g.fillRect(x - 30, y - 25, 60, 12);
-
-    // Door
-    g.fillStyle(0x87ceeb);
-    g.fillRect(x - 8, y, 16, 25);
-    g.lineStyle(1, 0x000000);
-    g.strokeRect(x - 8, y, 16, 25);
-
-    // Label
-    this.add.text(x, y - 17, 'CU', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '8px',
-      color: '#ffffff',
-    }).setOrigin(0.5);
-  }
-
-  drawSubwayEntrance(x, y) {
-    const g = this.add.graphics();
-
-    // Yellow entrance canopy (Seoul Metro style)
-    g.fillStyle(0xffd700);
-    g.fillRect(x - 25, y - 20, 50, 15);
-    g.lineStyle(2, 0x000000);
-    g.strokeRect(x - 25, y - 20, 50, 15);
-
-    // Stairs (gray)
-    g.fillStyle(0x808080);
-    g.fillRect(x - 18, y - 5, 36, 30);
-
-    // Stair lines
-    g.lineStyle(1, 0xffffff);
-    for (let i = 0; i < 6; i++) {
-      g.lineBetween(x - 18, y - 5 + i * 5, x + 18, y - 5 + i * 5);
+    // --- 4. HUD ---
+    this._updateHUD();
+    if (this.garlicContainer) {
+      this.garlicContainer.setDepth(100);
     }
 
-    // Railing (blue)
-    g.fillStyle(0x4169e1);
-    g.fillRect(x - 22, y - 5, 4, 30);
-    g.fillRect(x + 18, y - 5, 4, 30);
+    // --- 5. Menu overlay ---
+    this._renderMenu();
 
-    // Subway sign
-    this.add.text(x, y - 12, '지하철', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '7px',
-      color: '#000000',
-    }).setOrigin(0.5);
+    // --- 6. Dialogue overlay ---
+    this._renderDialogue();
   }
 
-  drawNeonSigns(x, y) {
-    // Skip neon signs - they're below visible area (y=320 is off screen)
-    // This function was drawing off-screen elements
+  /**
+   * Render the START menu as a right-aligned overlay.
+   * Only creates/destroys when menu state changes.
+   */
+  _renderMenu() {
+    // Track whether the menu was visible last frame
+    const shouldShow = this.menuOpen;
+    const wasShowing = !!this.menuGraphics;
+
+    // If menu just closed, destroy
+    if (!shouldShow && wasShowing) {
+      this._destroyMenu();
+      return;
+    }
+
+    if (!shouldShow) return;
+
+    // If menu just opened, create it
+    if (!wasShowing) {
+      this._createMenuGraphics();
+    }
+
+    // Update cursor position every frame (cursor may have moved)
+    if (this._menuCursorGraphics) {
+      this._menuCursorGraphics.clear();
+      const menuW = 60;
+      const lineH = 14;
+      const menuX = SCREEN_W - menuW - 4;
+      const menuY = 4;
+      const cursorX = menuX + 5;
+      const cursorY = menuY + 6 + this.menuCursor * lineH;
+      drawCursor(this._menuCursorGraphics, cursorX, cursorY);
+    }
   }
 
-  createUI() {
-    const { width } = this.scale;
-    const { FONTS, TEXT_SIZES } = GAME_CONFIG;
+  _createMenuGraphics() {
+    this._destroyMenu();
 
-    // Garlic counter - white box with black border (Pokemon style)
-    const container = this.add.container(width - 55, 25);
+    const g = this.add.graphics();
+    g.setDepth(200);
 
-    const bg = this.add.graphics();
-    bg.fillStyle(0xffffff);
-    bg.fillRect(-45, -15, 90, 30);
-    bg.lineStyle(2, 0x000000);
-    bg.strokeRect(-45, -15, 90, 30);
-    container.add(bg);
+    const menuW = 60;
+    const lineH = 14;
+    const menuH = MENU_ITEMS.length * lineH + 10;
+    const menuX = SCREEN_W - menuW - 4;
+    const menuY = 4;
 
-    // Garlic icon (yellow/white garlic)
-    const garlicIcon = this.add.graphics();
-    garlicIcon.fillStyle(0xfffacd);
-    garlicIcon.fillCircle(-25, 0, 8);
-    garlicIcon.fillCircle(-30, 4, 5);
-    garlicIcon.fillCircle(-20, 4, 5);
-    garlicIcon.lineStyle(1, 0x000000);
-    garlicIcon.strokeCircle(-25, 0, 8);
-    container.add(garlicIcon);
+    // Draw menu box
+    drawMenuBox(g, menuX, menuY, menuW, menuH);
+    this.menuGraphics = g;
 
-    // Counter text
-    this.garlicCounterText = this.add.text(10, 0, `${gameState.getGarlics()}/5`, {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.SMALL + 'px',
-      color: '#000000',
-    }).setOrigin(0.5);
-    container.add(this.garlicCounterText);
-  }
+    // Separate graphics for cursor (redrawn when cursor moves)
+    this._menuCursorGraphics = this.add.graphics();
+    this._menuCursorGraphics.setDepth(201);
 
-  createVirtualDPad() {
-    const { width, height } = this.scale;
-
-    const dpadX = 70;
-    const dpadY = height - 65;
-    const buttonSize = 36;
-
-    // D-pad background (white circle)
-    const bg = this.add.graphics();
-    bg.fillStyle(0xffffff, 0.9);
-    bg.fillCircle(dpadX, dpadY, 55);
-    bg.lineStyle(2, 0x000000);
-    bg.strokeCircle(dpadX, dpadY, 55);
-
-    // Direction buttons
-    const directions = [
-      { dir: 'up', x: 0, y: -buttonSize },
-      { dir: 'down', x: 0, y: buttonSize },
-      { dir: 'left', x: -buttonSize, y: 0 },
-      { dir: 'right', x: buttonSize, y: 0 },
-    ];
-
-    directions.forEach(({ dir, x, y }) => {
-      const btn = this.add.rectangle(
-        dpadX + x,
-        dpadY + y,
-        buttonSize - 4,
-        buttonSize - 4,
-        0xe0e0e0,
-        1
-      ).setInteractive();
-      btn.setStrokeStyle(1, 0x000000);
-
-      // Arrow symbols
-      const arrows = { up: '▲', down: '▼', left: '◀', right: '▶' };
-      this.add.text(dpadX + x, dpadY + y, arrows[dir], {
-        fontFamily: GAME_CONFIG.FONTS.MAIN,
-        fontSize: '10px',
+    // Draw text items
+    this._menuTexts = [];
+    for (let i = 0; i < MENU_ITEMS.length; i++) {
+      const textX = menuX + 14;
+      const textY = menuY + 5 + i * lineH;
+      const txt = this.add.text(textX, textY, MENU_ITEMS[i], {
+        fontFamily: GAME.FONT,
+        fontSize: `${GAME.FONT_SIZE}px`,
         color: '#000000',
-      }).setOrigin(0.5);
-
-      btn.on('pointerdown', () => {
-        btn.setFillStyle(0xaaaaaa, 1);
-        this.moveTiger(dir);
       });
+      txt.setDepth(201);
+      this._menuTexts.push(txt);
+    }
+  }
 
-      btn.on('pointerup', () => {
-        btn.setFillStyle(0xe0e0e0, 1);
-      });
+  _destroyMenu() {
+    if (this.menuGraphics) {
+      this.menuGraphics.destroy();
+      this.menuGraphics = null;
+    }
+    if (this._menuCursorGraphics) {
+      this._menuCursorGraphics.destroy();
+      this._menuCursorGraphics = null;
+    }
+    if (this._menuTexts) {
+      for (const t of this._menuTexts) t.destroy();
+      this._menuTexts = null;
+    }
+  }
 
-      btn.on('pointerout', () => {
-        btn.setFillStyle(0xe0e0e0, 1);
-      });
-    });
+  /**
+   * Render dialogue box at the bottom of the screen.
+   * Only creates/destroys when dialogue state changes.
+   */
+  _renderDialogue() {
+    const shouldShow = this.dialogueActive;
+    const wasShowing = !!this.dialogueGraphics;
 
-    // Hint text box
-    const hintBg = this.add.graphics();
-    hintBg.fillStyle(0xffffff, 0.9);
-    hintBg.fillRect(width - 120, height - 70, 100, 40);
-    hintBg.lineStyle(1, 0x000000);
-    hintBg.strokeRect(width - 120, height - 70, 100, 40);
+    // If dialogue just closed, destroy
+    if (!shouldShow && wasShowing) {
+      this._destroyDialogue();
+      return;
+    }
 
-    this.add.text(width - 70, height - 50, 'Walk around\nto find NPCs', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '7px',
+    if (!shouldShow) return;
+
+    // If dialogue just opened or text changed, create it
+    if (!wasShowing || this._lastDialogueText !== this.dialogueText) {
+      this._createDialogueGraphics();
+      this._lastDialogueText = this.dialogueText;
+    }
+    // Otherwise, keep existing graphics (blink timer keeps running)
+  }
+
+  _createDialogueGraphics() {
+    this._destroyDialogue();
+
+    const g = this.add.graphics();
+    g.setDepth(300);
+
+    const boxH = 36;
+    const boxY = SCREEN_H - boxH - 2;
+    const boxX = 2;
+    const boxW = SCREEN_W - 4;
+
+    // Draw dialogue box frame
+    drawMenuBox(g, boxX, boxY, boxW, boxH);
+    this.dialogueGraphics = g;
+
+    // Draw text
+    const txt = this.add.text(boxX + 8, boxY + 6, this.dialogueText, {
+      fontFamily: GAME.FONT,
+      fontSize: `${GAME.FONT_SIZE}px`,
       color: '#000000',
-      align: 'center',
-    }).setOrigin(0.5);
+      wordWrap: { width: boxW - 20 },
+      lineSpacing: 4,
+    });
+    txt.setDepth(301);
+    this._dialogueTextObj = txt;
+
+    // Continue indicator (down triangle, blinking)
+    const indicator = this.add.graphics();
+    indicator.setDepth(301);
+    indicator.fillStyle(0x000000);
+    indicator.fillTriangle(
+      boxX + boxW - 12, boxY + boxH - 8,
+      boxX + boxW - 6, boxY + boxH - 8,
+      boxX + boxW - 9, boxY + boxH - 4
+    );
+    this._dialogueContinue = indicator;
+
+    // Blink the indicator (created once, persists until dialogue closes)
+    this._blinkEvent = this.time.addEvent({
+      delay: 400,
+      callback: () => {
+        if (this._dialogueContinue) {
+          this._dialogueContinue.setVisible(!this._dialogueContinue.visible);
+        }
+      },
+      loop: true,
+    });
+  }
+
+  _destroyDialogue() {
+    if (this.dialogueGraphics) {
+      this.dialogueGraphics.destroy();
+      this.dialogueGraphics = null;
+    }
+    if (this._dialogueTextObj) {
+      this._dialogueTextObj.destroy();
+      this._dialogueTextObj = null;
+    }
+    if (this._dialogueContinue) {
+      this._dialogueContinue.destroy();
+      this._dialogueContinue = null;
+    }
+    if (this._blinkEvent) {
+      this._blinkEvent.destroy();
+      this._blinkEvent = null;
+    }
+    this._lastDialogueText = null;
   }
 }

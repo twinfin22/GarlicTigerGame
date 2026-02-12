@@ -1,152 +1,196 @@
-// ScrollScene - Final scene with glowing scroll and email capture
+// ScrollScene - Final scroll absorption and email capture
+// Phase flow: walking -> absorbing -> captured -> form -> final
 
 import Phaser from 'phaser';
-import { GAME_CONFIG, SCENES } from '../config.js';
+import { GAME, SCENES, BRANDING } from '../config.js';
 import { audioManager } from '../utils/AudioManager.js';
 import { shareManager } from '../utils/ShareManager.js';
-import { getPalette } from '../utils/GBGraphics.js';
+import { inputHandler } from '../utils/InputHandler.js';
+import { BG_PALETTES, BATTLE, hexToCSS } from '../data/palettes.js';
+import { drawTigerAtStage, drawDialogFrame } from '../utils/TileRenderer.js';
+
+// Palette shortcuts
+const CREAM = 0xF0E0D0;
+const BLACK = 0x383838;
+const DARK_BG = 0x383838;
+const SCROLL_CREAM = 0xF0E0D0;
+const GRAY_MID = 0x989898;
+const GRAY_LIGHT = 0x686868;
 
 export class ScrollScene extends Phaser.Scene {
   constructor() {
     super({ key: SCENES.SCROLL });
-    this.phase = 'walking'; // walking, absorbing, captured, form
-    this.tiger = null;
-    this.scroll = null;
-    this.glowParticles = [];
+    this.phase = 'walking';
+    this.sparkleGraphics = [];
+    this.emailInput = null;
+    this.scrollContainer = null;
+    this.scrollGlow = null;
+    this.tigerContainer = null;
+    this.instructionText = null;
+    this.messageText = null;
   }
 
   create() {
-    const { width, height } = this.scale;
-    const p = getPalette();
-
     this.phase = 'walking';
+    this.sparkleGraphics = [];
 
-    // Mystical background
-    this.cameras.main.setBackgroundColor(p.darkest);
+    // Dark background
+    this.cameras.main.setBackgroundColor(DARK_BG);
     this.cameras.main.fadeIn(500);
 
-    // Draw mystical room
+    // Draw the mystical room environment
     this.drawMysticalRoom();
 
-    // Create glowing scroll at top
-    this.createGlowingScroll(width / 2, 70);
+    // Create glowing scroll at top center
+    this.createGlowingScroll(GAME.WIDTH / 2, 36);
 
-    // Create tiger at bottom (will walk up)
-    this.tiger = this.createTiger(width / 2, height - 50);
+    // Create tiger (stage 5) at bottom center
+    this.tigerContainer = this.add.container(GAME.WIDTH / 2, GAME.HEIGHT - 28);
+    const tigerG = drawTigerAtStage(this, -8, -12, 5);
+    this.tigerContainer.add(tigerG);
 
-    // Instructions
-    this.instructionText = this.add.text(width / 2, height - 20, 'Press SPACE to approach', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '7px',
-      color: '#' + p.light.toString(16).padStart(6, '0'),
+    // Blinking "Tap to approach" instruction
+    this.instructionText = this.add.text(GAME.WIDTH / 2, GAME.HEIGHT - 8, 'Tap to approach', {
+      fontFamily: GAME.FONT,
+      fontSize: '6px',
+      color: hexToCSS(CREAM),
     }).setOrigin(0.5);
 
-    // Blink instruction
     this.time.addEvent({
       delay: 500,
       callback: () => {
-        if (this.instructionText) {
+        if (this.instructionText && this.instructionText.active) {
           this.instructionText.visible = !this.instructionText.visible;
         }
       },
       loop: true,
     });
 
-    // Input
+    // Input handling
     this.input.on('pointerdown', () => this.handleInput());
-    this.input.keyboard.on('keydown-SPACE', () => this.handleInput());
-    this.input.keyboard.on('keydown-ENTER', () => this.handleInput());
-  }
-
-  drawMysticalRoom() {
-    const { width, height } = this.scale;
-    const p = getPalette();
-    const g = this.add.graphics();
-
-    // Floor gradient effect
-    g.fillStyle(p.dark);
-    g.fillRect(0, height * 0.6, width, height * 0.4);
-
-    // Floor tiles
-    g.lineStyle(1, p.darkest);
-    for (let x = 0; x < width; x += 32) {
-      g.lineBetween(x, height * 0.6, x, height);
+    if (this.input.keyboard) {
+      this.input.keyboard.on('keydown-SPACE', () => this.handleInput());
+      this.input.keyboard.on('keydown-ENTER', () => this.handleInput());
     }
 
-    // Side walls/pillars
-    g.fillStyle(p.dark);
-    g.fillRect(0, 0, 15, height * 0.6);
-    g.fillRect(width - 15, 0, 15, height * 0.6);
+    // Clean up HTML elements on scene shutdown
+    this.events.on('shutdown', () => this.cleanup());
+    this.events.on('destroy', () => this.cleanup());
+  }
 
-    // Light rays from scroll position
-    g.fillStyle(p.light);
-    g.alpha = 0.1;
-    g.fillTriangle(width / 2, 40, width / 2 - 80, height * 0.6, width / 2 + 80, height * 0.6);
-    g.alpha = 1;
+  // ========================================
+  // PHASE 1: Mystical Room
+  // ========================================
 
-    // Mystical symbols on walls
-    const darkHex = '#' + p.dark.toString(16).padStart(6, '0');
-    const symbols = ['?', '?', '?', '?'];
+  drawMysticalRoom() {
+    const g = this.add.graphics();
+
+    // Floor area (lower 40% of screen)
+    const floorY = Math.floor(GAME.HEIGHT * 0.6);
+    g.fillStyle(GRAY_LIGHT);
+    g.fillRect(0, floorY, GAME.WIDTH, GAME.HEIGHT - floorY);
+
+    // Floor tile grid lines
+    g.lineStyle(1, BLACK);
+    for (let x = 0; x < GAME.WIDTH; x += 16) {
+      g.lineBetween(x, floorY, x, GAME.HEIGHT);
+    }
+    for (let y = floorY; y < GAME.HEIGHT; y += 16) {
+      g.lineBetween(0, y, GAME.WIDTH, y);
+    }
+
+    // Left pillar
+    g.fillStyle(GRAY_MID);
+    g.fillRect(0, 0, 10, floorY);
+    g.lineStyle(1, BLACK);
+    g.lineBetween(10, 0, 10, floorY);
+    // Pillar detail lines
+    g.fillStyle(GRAY_LIGHT);
+    g.fillRect(2, 4, 6, 2);
+    g.fillRect(2, floorY - 6, 6, 2);
+
+    // Right pillar
+    g.fillStyle(GRAY_MID);
+    g.fillRect(GAME.WIDTH - 10, 0, 10, floorY);
+    g.lineStyle(1, BLACK);
+    g.lineBetween(GAME.WIDTH - 10, 0, GAME.WIDTH - 10, floorY);
+    g.fillStyle(GRAY_LIGHT);
+    g.fillRect(GAME.WIDTH - 8, 4, 6, 2);
+    g.fillRect(GAME.WIDTH - 8, floorY - 6, 6, 2);
+
+    // Light rays from scroll position (subtle triangles)
+    const rayG = this.add.graphics();
+    rayG.fillStyle(CREAM, 0.08);
+    rayG.fillTriangle(
+      GAME.WIDTH / 2, 20,
+      GAME.WIDTH / 2 - 50, floorY,
+      GAME.WIDTH / 2 + 50, floorY
+    );
+
+    // Korean symbols on the walls
+    const symbols = ['\uCC9C', '\uC9C0', '\uC778', '\uD654']; // 천 지 인 화
     symbols.forEach((s, i) => {
-      this.add.text(30 + i * 65, 30, s, {
-        fontFamily: GAME_CONFIG.FONTS.MAIN,
+      const sx = 18 + i * 34;
+      this.add.text(sx, 16, s, {
+        fontFamily: GAME.FONT,
         fontSize: '8px',
-        color: darkHex,
+        color: hexToCSS(GRAY_LIGHT),
       });
     });
   }
 
-  createGlowingScroll(x, y) {
-    const p = getPalette();
+  // ========================================
+  // Glowing Scroll
+  // ========================================
 
-    // Scroll container
+  createGlowingScroll(x, y) {
     this.scrollContainer = this.add.container(x, y);
 
-    // Outer glow (pulsing)
+    // Outer glow (pulsing circle)
     this.scrollGlow = this.add.graphics();
-    this.scrollGlow.fillStyle(p.lightest, 0.3);
-    this.scrollGlow.fillCircle(0, 0, 45);
+    this.scrollGlow.fillStyle(CREAM, 0.25);
+    this.scrollGlow.fillCircle(0, 0, 22);
     this.scrollContainer.add(this.scrollGlow);
 
     // Inner glow
     const innerGlow = this.add.graphics();
-    innerGlow.fillStyle(p.light, 0.5);
-    innerGlow.fillCircle(0, 0, 30);
+    innerGlow.fillStyle(GRAY_MID, 0.4);
+    innerGlow.fillCircle(0, 0, 15);
     this.scrollContainer.add(innerGlow);
 
-    // Scroll body
+    // Scroll body (cream rectangle)
     const scrollBody = this.add.graphics();
-    scrollBody.fillStyle(p.lightest);
-    scrollBody.fillRect(-35, -20, 70, 40);
+    scrollBody.fillStyle(CREAM);
+    scrollBody.fillRect(-18, -10, 36, 20);
     this.scrollContainer.add(scrollBody);
 
-    // Scroll rolls (top and bottom)
+    // Roll caps (top and bottom bars)
     const rolls = this.add.graphics();
-    rolls.fillStyle(p.light);
-    rolls.fillRect(-40, -23, 80, 6);
-    rolls.fillRect(-40, 17, 80, 6);
-    // End caps
-    rolls.fillStyle(p.dark);
-    rolls.fillCircle(-40, -20, 4);
-    rolls.fillCircle(40, -20, 4);
-    rolls.fillCircle(-40, 20, 4);
-    rolls.fillCircle(40, 20, 4);
+    rolls.fillStyle(GRAY_MID);
+    rolls.fillRect(-20, -12, 40, 3);
+    rolls.fillRect(-20, 9, 40, 3);
+    // End cap circles
+    rolls.fillStyle(GRAY_LIGHT);
+    rolls.fillCircle(-20, -10, 2);
+    rolls.fillCircle(20, -10, 2);
+    rolls.fillCircle(-20, 10, 2);
+    rolls.fillCircle(20, 10, 2);
     this.scrollContainer.add(rolls);
 
-    // Scroll content hint (Korean text)
-    const scrollText = this.add.text(0, 0, '?????', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '8px',
-      color: '#' + p.darkest.toString(16).padStart(6, '0'),
+    // Inner text on scroll
+    const scrollText = this.add.text(0, 0, '\uD55C\uAD6D\uC758 \uBE44\uBC00', { // 한국의 비밀
+      fontFamily: GAME.FONT,
+      fontSize: '6px',
+      color: hexToCSS(BLACK),
     }).setOrigin(0.5);
     this.scrollContainer.add(scrollText);
 
-    // Glow animation
+    // Pulsing glow animation
     this.tweens.add({
       targets: this.scrollGlow,
-      alpha: 0.1,
-      scaleX: 1.2,
-      scaleY: 1.2,
+      alpha: 0.08,
+      scaleX: 1.3,
+      scaleY: 1.3,
       duration: 1000,
       yoyo: true,
       repeat: -1,
@@ -156,79 +200,47 @@ export class ScrollScene extends Phaser.Scene {
     // Floating animation
     this.tweens.add({
       targets: this.scrollContainer,
-      y: y - 5,
+      y: y - 3,
       duration: 1500,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
 
-    // Sparkle particles
+    // Pixel-art cross sparkles around scroll
     this.createSparkles(x, y);
   }
 
-  createSparkles(x, y) {
-    const p = getPalette();
-
+  createSparkles(cx, cy) {
     for (let i = 0; i < 8; i++) {
-      const sparkle = this.add.star(
-        x + Phaser.Math.Between(-40, 40),
-        y + Phaser.Math.Between(-30, 30),
-        4, 1, 3,
-        p.lightest
-      );
+      const sx = cx + Phaser.Math.Between(-28, 28);
+      const sy = cy + Phaser.Math.Between(-18, 18);
+
+      // Pixel-art cross pattern (vertical + horizontal)
+      const sparkle = this.add.graphics();
+      sparkle.fillStyle(CREAM);
+      sparkle.fillRect(0, -1, 1, 3); // vertical
+      sparkle.fillRect(-1, 0, 3, 1); // horizontal
+      sparkle.setPosition(sx, sy);
 
       this.tweens.add({
         targets: sparkle,
         alpha: 0,
-        scale: 0,
+        scaleX: 0,
+        scaleY: 0,
         duration: 800,
         delay: i * 200,
         yoyo: true,
         repeat: -1,
       });
 
-      this.glowParticles.push(sparkle);
+      this.sparkleGraphics.push(sparkle);
     }
   }
 
-  createTiger(x, y) {
-    const p = getPalette();
-    const container = this.add.container(x, y);
-
-    const g = this.add.graphics();
-
-    // Final form tiger (Korean - black hair, tall)
-    const bodyHeight = 24;
-    const bodyWidth = 14;
-
-    // Body
-    g.fillStyle(p.lightest);
-    g.fillRect(-bodyWidth / 2, -bodyHeight / 2, bodyWidth, bodyHeight);
-
-    // Head (black hair)
-    g.fillStyle(p.dark);
-    g.fillRect(-8, -bodyHeight / 2 - 12, 16, 12);
-
-    // Eyes
-    g.fillStyle(p.darkest);
-    g.fillRect(-5, -bodyHeight / 2 - 8, 3, 3);
-    g.fillRect(2, -bodyHeight / 2 - 8, 3, 3);
-
-    // Ears
-    g.fillStyle(p.dark);
-    g.fillTriangle(-8, -bodyHeight / 2 - 12, -8, -bodyHeight / 2 - 18, -4, -bodyHeight / 2 - 12);
-    g.fillTriangle(8, -bodyHeight / 2 - 12, 8, -bodyHeight / 2 - 18, 4, -bodyHeight / 2 - 12);
-
-    // Happy smile
-    g.lineStyle(1, p.darkest);
-    g.beginPath();
-    g.arc(0, -bodyHeight / 2 - 3, 3, 0.3, Math.PI - 0.3);
-    g.strokePath();
-
-    container.add(g);
-    return container;
-  }
+  // ========================================
+  // Input Handling
+  // ========================================
 
   handleInput() {
     audioManager.resume();
@@ -238,27 +250,38 @@ export class ScrollScene extends Phaser.Scene {
         this.startWalking();
         break;
       case 'absorbing':
-        // Wait for animation
+        // Wait for animation to complete
         break;
       case 'captured':
         this.showEmailForm();
         break;
       case 'form':
-        // Form handles its own input
+        // Form handles its own input via HTML elements and buttons
+        break;
+      default:
         break;
     }
   }
 
+  // ========================================
+  // PHASE 2: Scroll Absorption
+  // ========================================
+
   startWalking() {
     this.phase = 'absorbing';
-    if (this.instructionText) this.instructionText.destroy();
+
+    // Remove instruction text
+    if (this.instructionText) {
+      this.instructionText.destroy();
+      this.instructionText = null;
+    }
 
     audioManager.playWalk();
 
-    // Tiger walks up to scroll
+    // Tiger walks up to scroll position
     this.tweens.add({
-      targets: this.tiger,
-      y: 120,
+      targets: this.tigerContainer,
+      y: GAME.HEIGHT / 2 + 16,
       duration: 1500,
       ease: 'Linear',
       onComplete: () => this.absorbScroll(),
@@ -266,23 +289,28 @@ export class ScrollScene extends Phaser.Scene {
   }
 
   absorbScroll() {
-    const { width, height } = this.scale;
-    const p = getPalette();
+    const tigerY = GAME.HEIGHT / 2 + 16;
 
     audioManager.playCorrect();
 
-    // Flash effect
-    const flash = this.add.rectangle(width / 2, height / 2, width, height, p.lightest, 0.8);
+    // Flash effect (full screen white flash)
+    const flash = this.add.rectangle(
+      GAME.WIDTH / 2, GAME.HEIGHT / 2,
+      GAME.WIDTH, GAME.HEIGHT,
+      CREAM, 0.8
+    );
+    flash.setDepth(10);
     this.tweens.add({
       targets: flash,
       alpha: 0,
       duration: 500,
+      onComplete: () => flash.destroy(),
     });
 
     // Scroll shrinks into tiger
     this.tweens.add({
       targets: this.scrollContainer,
-      y: 120,
+      y: tigerY,
       scaleX: 0,
       scaleY: 0,
       alpha: 0,
@@ -290,86 +318,83 @@ export class ScrollScene extends Phaser.Scene {
       ease: 'Power2',
     });
 
-    // Particles fly into tiger
-    this.glowParticles.forEach((particle, i) => {
+    // Sparkles fly into tiger
+    this.sparkleGraphics.forEach((sparkle, i) => {
       this.tweens.add({
-        targets: particle,
-        x: width / 2,
-        y: 120,
+        targets: sparkle,
+        x: GAME.WIDTH / 2,
+        y: tigerY,
         alpha: 0,
         duration: 600,
         delay: i * 50,
       });
     });
 
-    // Tiger glows
+    // Tiger glow effect after scroll absorbed
     this.time.delayedCall(800, () => {
-      this.tigerGlowEffect();
+      this.tigerGlowEffect(tigerY);
     });
   }
 
-  tigerGlowEffect() {
-    const { width, height } = this.scale;
-    const p = getPalette();
-
-    // Glow around tiger
-    const tigerGlow = this.add.graphics();
-    tigerGlow.fillStyle(p.lightest, 0.5);
-    tigerGlow.fillCircle(width / 2, 120, 40);
+  tigerGlowEffect(tigerY) {
+    // Expanding glow circle around tiger
+    const glow = this.add.graphics();
+    glow.fillStyle(CREAM, 0.5);
+    glow.fillCircle(GAME.WIDTH / 2, tigerY, 20);
 
     this.tweens.add({
-      targets: tigerGlow,
+      targets: glow,
       alpha: 0,
-      scaleX: 2,
-      scaleY: 2,
+      scaleX: 2.5,
+      scaleY: 2.5,
       duration: 1000,
       onComplete: () => {
-        tigerGlow.destroy();
+        glow.destroy();
         this.showCapturedMessage();
       },
     });
   }
 
-  showCapturedMessage() {
-    const { width, height } = this.scale;
-    const p = getPalette();
-    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
-    const lightestHex = '#' + p.lightest.toString(16).padStart(6, '0');
+  // ========================================
+  // PHASE 3: Message Display
+  // ========================================
 
+  showCapturedMessage() {
     this.phase = 'captured';
 
-    // Message box (Pokemon style)
-    const boxY = height - 80;
-    const boxH = 65;
+    // Dialogue-style message box at bottom of screen
+    const boxX = 4;
+    const boxY = GAME.HEIGHT - 40;
+    const boxW = GAME.WIDTH - 8;
+    const boxH = 36;
 
-    const box = this.add.graphics();
-    box.fillStyle(p.lightest);
-    box.fillRect(10, boxY, width - 20, boxH);
-    box.lineStyle(3, p.darkest);
-    box.strokeRect(10, boxY, width - 20, boxH);
+    const boxG = this.add.graphics();
+    drawDialogFrame(boxG, boxX, boxY, boxW, boxH);
 
-    // Message
-    this.add.text(width / 2, boxY + 15, 'The scroll\'s knowledge', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
+    // Message text inside the dialog box
+    this.add.text(GAME.WIDTH / 2, boxY + 10, "The scroll's knowledge", {
+      fontFamily: GAME.FONT,
       fontSize: '8px',
-      color: darkestHex,
+      color: hexToCSS(BATTLE.TEXT),
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, boxY + 30, 'flows into you!', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
+    this.add.text(GAME.WIDTH / 2, boxY + 22, 'flows into you!', {
+      fontFamily: GAME.FONT,
       fontSize: '8px',
-      color: darkestHex,
+      color: hexToCSS(BATTLE.TEXT),
     }).setOrigin(0.5);
 
-    // Continue prompt
-    const continueText = this.add.text(width - 25, boxY + boxH - 12, '?', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '8px',
-      color: darkestHex,
-    });
+    // Blinking continue indicator (down triangle)
+    const indicator = this.add.graphics();
+    indicator.fillStyle(BATTLE.TEXT);
+    indicator.fillTriangle(
+      boxX + boxW - 10, boxY + boxH - 8,
+      boxX + boxW - 6, boxY + boxH - 8,
+      boxX + boxW - 8, boxY + boxH - 4
+    );
 
     this.tweens.add({
-      targets: continueText,
+      targets: indicator,
       alpha: 0.3,
       duration: 400,
       yoyo: true,
@@ -377,177 +402,182 @@ export class ScrollScene extends Phaser.Scene {
     });
   }
 
-  showEmailForm() {
-    const { width, height } = this.scale;
-    const p = getPalette();
-    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
-    const lightestHex = '#' + p.lightest.toString(16).padStart(6, '0');
-    const darkHex = '#' + p.dark.toString(16).padStart(6, '0');
+  // ========================================
+  // PHASE 4: Email Capture Form
+  // ========================================
 
+  showEmailForm() {
     this.phase = 'form';
     audioManager.playSelect();
 
-    // Clear previous UI
+    // Clear all game objects
     this.children.removeAll();
 
-    // Background
-    this.cameras.main.setBackgroundColor(p.darkest);
+    // Remove any leftover email input
+    if (this.emailInput) {
+      this.emailInput.remove();
+      this.emailInput = null;
+    }
 
-    // Border
+    // Dark background with cream border
+    this.cameras.main.setBackgroundColor(DARK_BG);
+
     const border = this.add.graphics();
-    border.lineStyle(3, p.lightest);
-    border.strokeRect(4, 4, width - 8, height - 8);
+    border.lineStyle(2, CREAM);
+    border.strokeRect(4, 4, GAME.WIDTH - 8, GAME.HEIGHT - 8);
 
-    // Title
-    this.add.text(width / 2, 25, 'SACRED SCROLL', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '10px',
-      color: lightestHex,
-    }).setOrigin(0.5);
-
-    // Subtitle
-    this.add.text(width / 2, 45, 'K-Digital Guide', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
+    // "SACRED SCROLL" title (y~12)
+    this.add.text(GAME.WIDTH / 2, 12, 'SACRED SCROLL', {
+      fontFamily: GAME.FONT,
       fontSize: '8px',
-      color: darkHex,
+      color: hexToCSS(CREAM),
     }).setOrigin(0.5);
 
-    // Small scroll icon
+    // "K-Digital Guide" subtitle (y~24)
+    this.add.text(GAME.WIDTH / 2, 24, 'K-Digital Guide', {
+      fontFamily: GAME.FONT,
+      fontSize: '6px',
+      color: hexToCSS(GRAY_MID),
+    }).setOrigin(0.5);
+
+    // Small scroll icon (y~34)
     const scrollIcon = this.add.graphics();
-    scrollIcon.fillStyle(p.lightest);
-    scrollIcon.fillRect(width / 2 - 20, 60, 40, 25);
-    scrollIcon.fillStyle(p.light);
-    scrollIcon.fillRect(width / 2 - 23, 58, 46, 4);
-    scrollIcon.fillRect(width / 2 - 23, 83, 46, 4);
+    scrollIcon.fillStyle(CREAM);
+    scrollIcon.fillRect(GAME.WIDTH / 2 - 10, 32, 20, 12);
+    scrollIcon.fillStyle(GRAY_MID);
+    scrollIcon.fillRect(GAME.WIDTH / 2 - 12, 31, 24, 2);
+    scrollIcon.fillRect(GAME.WIDTH / 2 - 12, 43, 24, 2);
 
-    // Prompt
-    this.add.text(width / 2, 105, 'Receive your scroll?', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '8px',
-      color: lightestHex,
+    // "Receive the Sacred Scroll?" prompt (y~48)
+    this.add.text(GAME.WIDTH / 2, 52, 'Receive the', {
+      fontFamily: GAME.FONT,
+      fontSize: '6px',
+      color: hexToCSS(CREAM),
     }).setOrigin(0.5);
 
-    // Email input area (in-game style)
-    this.createInGameEmailForm(width / 2, 150);
+    this.add.text(GAME.WIDTH / 2, 62, 'Sacred Scroll?', {
+      fontFamily: GAME.FONT,
+      fontSize: '6px',
+      color: hexToCSS(CREAM),
+    }).setOrigin(0.5);
+
+    // Email input area
+    this.createInGameEmailForm();
   }
 
-  createInGameEmailForm(x, y) {
-    const { width, height } = this.scale;
-    const p = getPalette();
-    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
-    const lightestHex = '#' + p.lightest.toString(16).padStart(6, '0');
+  createInGameEmailForm() {
+    const inputY = 78;
 
-    // Email input box
+    // Email input box background: cream fill, black border
     const inputBox = this.add.graphics();
-    inputBox.fillStyle(p.lightest);
-    inputBox.fillRect(20, y - 12, width - 40, 24);
-    inputBox.lineStyle(2, p.dark);
-    inputBox.strokeRect(20, y - 12, width - 40, 24);
+    inputBox.fillStyle(CREAM);
+    inputBox.fillRect(12, inputY - 6, GAME.WIDTH - 24, 12);
+    inputBox.lineStyle(1, BLACK);
+    inputBox.strokeRect(12, inputY - 6, GAME.WIDTH - 24, 12);
 
-    // Create HTML input (positioned over game canvas)
-    this.createEmailInput(y);
+    // Create HTML email input overlaid on canvas
+    this.createEmailInput(inputY);
 
-    // Submit button (matching localnomad.club style)
-    this.createInGameButton(x, y + 40, 'GET FREE ACCESS', () => {
+    // "GET ACCESS" button
+    this.createButton(GAME.WIDTH / 2, inputY + 20, 'GET ACCESS', () => {
       this.submitEmailForm();
     });
 
-    // Skip button
-    this.createInGameButton(x, y + 75, 'SKIP', () => {
+    // "SKIP" button
+    this.createButton(GAME.WIDTH / 2, inputY + 36, 'SKIP', () => {
+      if (this.emailInput) {
+        this.emailInput.remove();
+        this.emailInput = null;
+      }
       this.showFinalScreen();
     });
 
-    // Privacy note (matching localnomad.club)
-    this.add.text(width / 2, y + 105, 'No spam, ever.', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
+    // "No spam, ever." text
+    this.add.text(GAME.WIDTH / 2, inputY + 50, 'No spam, ever.', {
+      fontFamily: GAME.FONT,
       fontSize: '6px',
-      color: '#' + p.dark.toString(16).padStart(6, '0'),
+      color: hexToCSS(GRAY_MID),
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, y + 118, 'Unsubscribe anytime.', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
+    // "Unsubscribe anytime." text
+    this.add.text(GAME.WIDTH / 2, inputY + 60, 'Unsubscribe anytime.', {
+      fontFamily: GAME.FONT,
       fontSize: '6px',
-      color: '#' + p.dark.toString(16).padStart(6, '0'),
+      color: hexToCSS(GRAY_MID),
     }).setOrigin(0.5);
   }
 
   createEmailInput(y) {
-    // Position input over the game canvas
     const canvas = this.game.canvas;
     const rect = canvas.getBoundingClientRect();
-    const scaleX = rect.width / this.scale.width;
-    const scaleY = rect.height / this.scale.height;
+    const scaleX = rect.width / GAME.WIDTH;
+    const scaleY = rect.height / GAME.HEIGHT;
 
-    // Create input element
     const input = document.createElement('input');
     input.type = 'email';
     input.id = 'scroll-email';
     input.placeholder = 'your@email.com';
-    input.style.position = 'absolute';
-    input.style.left = (rect.left + 22 * scaleX) + 'px';
-    input.style.top = (rect.top + (y - 10) * scaleY) + 'px';
-    input.style.width = ((this.scale.width - 44) * scaleX) + 'px';
-    input.style.height = (20 * scaleY) + 'px';
-    input.style.padding = '2px 8px';
+    input.style.position = 'fixed';
+    input.style.left = (rect.left + 12 * scaleX) + 'px';
+    input.style.top = (rect.top + (y - 5) * scaleY) + 'px';
+    input.style.width = ((GAME.WIDTH - 24) * scaleX) + 'px';
+    input.style.height = (10 * scaleY) + 'px';
+    input.style.padding = '2px 4px';
     input.style.border = 'none';
     input.style.background = 'transparent';
-    input.style.color = '#000000';
+    input.style.color = '#383838';
     input.style.fontFamily = "'Press Start 2P', monospace";
-    input.style.fontSize = (7 * scaleY) + 'px';
+    input.style.fontSize = (6 * scaleY) + 'px';
     input.style.outline = 'none';
     input.style.zIndex = '1000';
 
     document.body.appendChild(input);
     this.emailInput = input;
-
-    // Focus input
     this.time.delayedCall(100, () => input.focus());
 
-    // Handle Enter key
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        this.submitEmailForm();
-      }
+      if (e.key === 'Enter') this.submitEmailForm();
     });
   }
 
-  createInGameButton(x, y, text, callback) {
-    const p = getPalette();
-    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
-
+  createButton(x, y, text, callback) {
+    const btnW = 70;
+    const btnH = 12;
     const container = this.add.container(x, y);
 
     const bg = this.add.graphics();
-    bg.fillStyle(p.light);
-    bg.fillRect(-70, -12, 140, 24);
-    bg.lineStyle(2, p.darkest);
-    bg.strokeRect(-70, -12, 140, 24);
+    bg.fillStyle(GRAY_MID);
+    bg.fillRect(-btnW / 2, -btnH / 2, btnW, btnH);
+    bg.lineStyle(1, BLACK);
+    bg.strokeRect(-btnW / 2, -btnH / 2, btnW, btnH);
     container.add(bg);
 
     const btnText = this.add.text(0, 0, text, {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '8px',
-      color: darkestHex,
+      fontFamily: GAME.FONT,
+      fontSize: '6px',
+      color: hexToCSS(CREAM),
     }).setOrigin(0.5);
     container.add(btnText);
 
-    container.setSize(140, 24);
+    container.setSize(btnW, btnH);
     container.setInteractive({ useHandCursor: true });
 
     container.on('pointerover', () => {
       bg.clear();
-      bg.fillStyle(p.lightest);
-      bg.fillRect(-70, -12, 140, 24);
-      bg.lineStyle(2, p.darkest);
-      bg.strokeRect(-70, -12, 140, 24);
+      bg.fillStyle(CREAM);
+      bg.fillRect(-btnW / 2, -btnH / 2, btnW, btnH);
+      bg.lineStyle(1, BLACK);
+      bg.strokeRect(-btnW / 2, -btnH / 2, btnW, btnH);
+      btnText.setColor(hexToCSS(BLACK));
     });
 
     container.on('pointerout', () => {
       bg.clear();
-      bg.fillStyle(p.light);
-      bg.fillRect(-70, -12, 140, 24);
-      bg.lineStyle(2, p.darkest);
-      bg.strokeRect(-70, -12, 140, 24);
+      bg.fillStyle(GRAY_MID);
+      bg.fillRect(-btnW / 2, -btnH / 2, btnW, btnH);
+      bg.lineStyle(1, BLACK);
+      bg.strokeRect(-btnW / 2, -btnH / 2, btnW, btnH);
+      btnText.setColor(hexToCSS(CREAM));
     });
 
     container.on('pointerdown', () => {
@@ -558,60 +588,40 @@ export class ScrollScene extends Phaser.Scene {
     return container;
   }
 
+  // ========================================
+  // Email Submission
+  // ========================================
+
   submitEmailForm() {
     const email = this.emailInput ? this.emailInput.value : '';
 
     if (!email || !email.includes('@')) {
-      // Show error in game
       this.showInGameMessage('Enter valid email!', false);
       return;
     }
 
-    // Send to Airtable
     this.sendToAirtable(email);
   }
 
   async sendToAirtable(email) {
-    // Use serverless API endpoint for secure submission
-    // API key is kept server-side, not exposed to frontend
     const API_ENDPOINT = '/api/subscribe';
-
     try {
-      // Show loading state
       this.showInGameMessage('Sending...', true);
-
       const response = await fetch(API_ENDPOINT, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email,
-          source: 'garlic-tiger-game',
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, source: 'garlic-tiger-game' }),
       });
-
       const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Submission failed');
 
-      if (!response.ok) {
-        console.error('API error:', data);
-        throw new Error(data.error || 'Submission failed');
-      }
-
-      console.log('Email submitted successfully');
-
-      // Remove input
       if (this.emailInput) {
         this.emailInput.remove();
         this.emailInput = null;
       }
-
       audioManager.playCorrect();
       this.showInGameMessage('Scroll sent!', true);
-
-      this.time.delayedCall(1500, () => {
-        this.showFinalScreen();
-      });
+      this.time.delayedCall(1500, () => this.showFinalScreen());
     } catch (error) {
       console.error('Subscription error:', error);
       this.showInGameMessage('Error! Try again.', false);
@@ -619,74 +629,90 @@ export class ScrollScene extends Phaser.Scene {
   }
 
   showInGameMessage(text, success) {
-    const { width, height } = this.scale;
-    const p = getPalette();
+    // Remove previous message if any
+    if (this.messageText) {
+      this.messageText.destroy();
+      this.messageText = null;
+    }
 
-    const msg = this.add.text(width / 2, height / 2, text, {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '10px',
-      color: success ? '#' + p.lightest.toString(16).padStart(6, '0') : '#ff6666',
-      backgroundColor: '#' + p.darkest.toString(16).padStart(6, '0'),
-      padding: { x: 10, y: 5 },
-    }).setOrigin(0.5);
+    const textColor = success ? hexToCSS(CREAM) : hexToCSS(0xF05030);
+    const bgColor = hexToCSS(BLACK);
+
+    this.messageText = this.add.text(GAME.WIDTH / 2, GAME.HEIGHT / 2, text, {
+      fontFamily: GAME.FONT,
+      fontSize: '8px',
+      color: textColor,
+      backgroundColor: bgColor,
+      padding: { x: 4, y: 3 },
+    }).setOrigin(0.5).setDepth(20);
 
     this.tweens.add({
-      targets: msg,
+      targets: this.messageText,
       alpha: 0,
       duration: 300,
       delay: 1200,
-      onComplete: () => msg.destroy(),
+      onComplete: () => {
+        if (this.messageText) {
+          this.messageText.destroy();
+          this.messageText = null;
+        }
+      },
     });
   }
 
-  showFinalScreen() {
-    const { width, height } = this.scale;
-    const p = getPalette();
-    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
-    const lightestHex = '#' + p.lightest.toString(16).padStart(6, '0');
+  // ========================================
+  // PHASE 5: Final Screen
+  // ========================================
 
-    // Remove email input if still there
+  showFinalScreen() {
+    // Remove email input if still present
     if (this.emailInput) {
       this.emailInput.remove();
       this.emailInput = null;
     }
 
-    // Clear and show final screen
+    // Clear all game objects
     this.children.removeAll();
-    this.cameras.main.setBackgroundColor(p.darkest);
+    this.cameras.main.setBackgroundColor(DARK_BG);
 
-    // Border
+    // Cream border
     const border = this.add.graphics();
-    border.lineStyle(3, p.lightest);
-    border.strokeRect(4, 4, width - 8, height - 8);
+    border.lineStyle(2, CREAM);
+    border.strokeRect(4, 4, GAME.WIDTH - 8, GAME.HEIGHT - 8);
 
-    // Congratulations
-    this.add.text(width / 2, 40, 'CONGRATULATIONS!', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '10px',
-      color: lightestHex,
-    }).setOrigin(0.5);
-
-    this.add.text(width / 2, 60, 'You are now Korean!', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
+    // "CONGRATULATIONS!" title
+    this.add.text(GAME.WIDTH / 2, 16, 'CONGRATULATIONS!', {
+      fontFamily: GAME.FONT,
       fontSize: '8px',
-      color: '#' + p.light.toString(16).padStart(6, '0'),
+      color: hexToCSS(CREAM),
     }).setOrigin(0.5);
 
-    // Final tiger
-    const finalTiger = this.createTiger(width / 2, 120);
+    // "You are now Korean!" subtitle
+    this.add.text(GAME.WIDTH / 2, 28, 'You are now Korean!', {
+      fontFamily: GAME.FONT,
+      fontSize: '6px',
+      color: hexToCSS(GRAY_MID),
+    }).setOrigin(0.5);
 
-    // Sparkles around tiger
+    // Tiger sprite (stage 5, centered)
+    const tigerX = GAME.WIDTH / 2 - 8;
+    const tigerY = 42;
+    drawTigerAtStage(this, tigerX, tigerY, 5);
+
+    // Pixel sparkles around tiger
     for (let i = 0; i < 6; i++) {
-      const sparkle = this.add.star(
-        width / 2 + Phaser.Math.Between(-40, 40),
-        120 + Phaser.Math.Between(-30, 30),
-        4, 1, 3, p.lightest
-      );
+      const sparkle = this.add.graphics();
+      sparkle.fillStyle(CREAM);
+      const sx = GAME.WIDTH / 2 + Phaser.Math.Between(-24, 24);
+      const sy = tigerY + 8 + Phaser.Math.Between(-16, 16);
+      sparkle.fillRect(sx, sy - 1, 1, 3);    // vertical
+      sparkle.fillRect(sx - 1, sy, 3, 1);    // horizontal
+
       this.tweens.add({
         targets: sparkle,
         alpha: 0.3,
-        scale: 0.5,
+        scaleX: 0.5,
+        scaleY: 0.5,
         duration: 600,
         delay: i * 100,
         yoyo: true,
@@ -694,34 +720,44 @@ export class ScrollScene extends Phaser.Scene {
       });
     }
 
-    // Buttons
-    this.createInGameButton(width / 2, 180, 'SHARE VICTORY', async () => {
+    // "SHARE VICTORY" button
+    this.createButton(GAME.WIDTH / 2, 84, 'SHARE VICTORY', async () => {
       const result = await shareManager.shareWithStage(5, 5);
       if (result.success) {
         this.showInGameMessage('Shared!', true);
       }
     });
 
-    this.createInGameButton(width / 2, 215, 'PLAY AGAIN', () => {
+    // "PLAY AGAIN" button
+    this.createButton(GAME.WIDTH / 2, 100, 'PLAY AGAIN', () => {
       this.scene.start(SCENES.TITLE);
     });
 
-    // Branding
-    this.add.text(width / 2, height - 20, 'localnomad.club', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '7px',
-      color: '#' + p.dark.toString(16).padStart(6, '0'),
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        window.open(GAME_CONFIG.BRANDING.URL, '_blank');
-      });
+    // "localnomad.club" branding link at bottom
+    const brandText = this.add.text(GAME.WIDTH / 2, GAME.HEIGHT - 12, 'localnomad.club', {
+      fontFamily: GAME.FONT,
+      fontSize: '6px',
+      color: hexToCSS(GRAY_LIGHT),
+    }).setOrigin(0.5);
+
+    brandText.setInteractive({ useHandCursor: true });
+    brandText.on('pointerdown', () => {
+      window.open(BRANDING.URL, '_blank');
+    });
   }
 
-  shutdown() {
-    // Cleanup HTML elements
+  // ========================================
+  // Cleanup
+  // ========================================
+
+  cleanup() {
     if (this.emailInput) {
       this.emailInput.remove();
       this.emailInput = null;
     }
+  }
+
+  shutdown() {
+    this.cleanup();
   }
 }

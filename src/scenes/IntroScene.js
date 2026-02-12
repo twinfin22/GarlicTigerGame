@@ -1,11 +1,14 @@
-// IntroScene - Hanok gate with guards introducing the quest
+// IntroScene - Prof Oak-style intro at the gate (160x144 native)
 
 import Phaser from 'phaser';
-import { GAME_CONFIG, SCENES } from '../config.js';
-import { DialogueBox } from '../objects/DialogueBox.js';
+import { GAME, SCENES, BRANDING } from '../config.js';
 import { audioManager } from '../utils/AudioManager.js';
 import { gameState } from '../utils/StateManager.js';
-import { getPalette, drawSprite, SPRITES } from '../utils/GBGraphics.js';
+import { inputHandler } from '../utils/InputHandler.js';
+import { BG_PALETTES, BATTLE, hexToCSS, getSpritePalette } from '../data/palettes.js';
+import * as Sprites from '../data/spriteData.js';
+import { drawOverworldSprite, drawDialogFrame, drawTigerAtStage, drawHanokGate, drawGarlicCounter } from '../utils/TileRenderer.js';
+import { DialogueBox } from '../objects/DialogueBox.js';
 
 export class IntroScene extends Phaser.Scene {
   constructor() {
@@ -14,65 +17,53 @@ export class IntroScene extends Phaser.Scene {
     this.dialogueIndex = 0;
     this.dialogues = [
       { speaker: 'Guard', text: 'Halt! This is the K-Digital Fortress.' },
-      { speaker: 'Guard', text: 'Outsiders cannot enter. Only Koreans may pass!' },
+      { speaker: 'Guard', text: 'Only Koreans may pass!' },
       { speaker: 'Tiger', text: 'But I want to become Korean...' },
-      { speaker: 'Guard', text: 'Then you must eat garlic. Bring us 5 garlics from the land of Korea.' },
-      { speaker: 'Guard', text: 'Only then will you transform and be worthy to enter...' },
+      { speaker: 'Guard', text: 'Bring us 5 garlics from Korea.' },
+      { speaker: 'Guard', text: 'Only then will you transform...' },
     ];
   }
 
   create() {
-    const { width, height } = this.scale;
-    const { FONTS, TEXT_SIZES } = GAME_CONFIG;
-    const p = getPalette();
-    this.palette = p;
-
     // Reset state
     gameState.reset();
     this.dialogueIndex = 0;
+    inputHandler.init(this);
 
-    // Background - use palette
-    this.cameras.main.setBackgroundColor(p.darkest);
+    // Dark background, fade in
+    this.cameras.main.setBackgroundColor(0x383838);
     this.cameras.main.fadeIn(500);
 
-    // Draw Hanok gate
-    this.drawHanokGate(width / 2, 200);
+    // Draw Hanok gate (centered, scaled for 160x144)
+    drawHanokGate(this, 80, 10);
 
-    // Draw guards
-    this.drawGuard(width / 2 - 60, 350, false);
-    this.drawGuard(width / 2 + 60, 350, true);
+    // Draw 2 guards flanking gate
+    this.drawGuard(24, 60, false);
+    this.drawGuard(136, 60, true);
 
-    // Draw tiger (player)
-    this.drawSmallTiger(width / 2, 480);
+    // Draw tiger below gate (stage 0)
+    drawTigerAtStage(this, 72, 80, 0);
 
-    // Garlic counter UI
-    this.createGarlicCounter();
+    // Garlic counter top-right (0/5)
+    drawGarlicCounter(this, 140, 8, 0, GAME.TOTAL_GARLICS);
 
-    // Create dialogue box
-    this.dialogueBox = new DialogueBox(
-      this,
-      20,
-      height - 140,
-      width - 40,
-      120
-    );
+    // Create dialogue box (Pokemon Gold style, anchored at y=112)
+    this.dialogueBox = new DialogueBox(this);
 
-    // Start dialogue after a brief pause
+    // Start dialogue after brief pause
     this.time.delayedCall(500, () => {
       this.showNextDialogue();
     });
 
     // Input to advance dialogue
-    this.input.on('pointerdown', () => {
+    inputHandler.on('action', () => {
       this.handleInput();
     });
 
-    this.input.keyboard.on('keydown-SPACE', () => {
-      this.handleInput();
-    });
-
-    this.input.keyboard.on('keydown-ENTER', () => {
-      this.handleInput();
+    // Cleanup on shutdown
+    this.events.once('shutdown', () => {
+      inputHandler.destroy();
+      if (this.dialogueBox) this.dialogueBox.destroy();
     });
   }
 
@@ -101,15 +92,11 @@ export class IntroScene extends Phaser.Scene {
     audioManager.playConfirm();
     this.dialogueBox.hide();
 
-    // Show transition text
-    const { width, height } = this.scale;
-    const p = this.palette;
-    const lightestHex = '#' + p.lightest.toString(16).padStart(6, '0');
-
-    const transitionText = this.add.text(width / 2, height / 2, 'The Journey Begins...', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: GAME_CONFIG.TEXT_SIZES.MEDIUM + 'px',
-      color: lightestHex,
+    // "The Journey Begins..." text
+    const transitionText = this.add.text(80, 72, 'The Journey Begins...', {
+      fontFamily: GAME.FONT,
+      fontSize: '8px',
+      color: '#F0E0D0',
     }).setOrigin(0.5).setAlpha(0);
 
     this.tweens.add({
@@ -127,123 +114,30 @@ export class IntroScene extends Phaser.Scene {
     });
   }
 
-  drawHanokGate(x, y) {
-    const p = this.palette;
+  drawGuard(x, y, mirrored) {
     const g = this.add.graphics();
-    const darkestHex = '#' + p.darkest.toString(16).padStart(6, '0');
 
-    // Main gate structure
-    g.fillStyle(p.dark);
-    g.fillRect(x - 100, y, 200, 120);
-
-    // Gate opening (dark)
-    g.fillStyle(p.darkest);
-    g.fillRect(x - 40, y + 40, 80, 80);
-
-    // Gate doors (closed)
-    g.fillStyle(p.light);
-    g.fillRect(x - 38, y + 42, 36, 76);
-    g.fillRect(x + 2, y + 42, 36, 76);
-
-    // Door details
-    g.fillStyle(p.dark);
-    g.fillRect(x - 30, y + 50, 20, 30);
-    g.fillRect(x + 10, y + 50, 20, 30);
-
-    // Roof - traditional Korean curved roof
-    g.fillStyle(p.darkest);
-    // Main roof
-    g.fillRect(x - 120, y - 20, 240, 25);
-    // Curved edges (simplified)
-    g.fillTriangle(x - 120, y - 20, x - 140, y + 5, x - 100, y + 5);
-    g.fillTriangle(x + 120, y - 20, x + 140, y + 5, x + 100, y + 5);
-
-    // Roof tiles pattern
-    g.fillStyle(p.dark);
-    for (let i = -110; i < 110; i += 20) {
-      g.fillRect(x + i, y - 18, 2, 20);
+    // Draw guard using GUARD sprite data if available, otherwise simple shape
+    if (Sprites.GUARD) {
+      drawOverworldSprite(g, x - 8, y - 8, Sprites.GUARD, getSpritePalette('GRAY'));
+    } else {
+      // Fallback: simple guard shape
+      g.fillStyle(0x989898);
+      g.fillRect(x - 4, y - 8, 8, 16);
+      g.fillStyle(0x686868);
+      g.fillRect(x - 3, y - 6, 6, 4);
     }
-
-    // Second roof tier
-    g.fillStyle(p.dark);
-    g.fillRect(x - 90, y - 40, 180, 22);
-    g.fillTriangle(x - 90, y - 40, x - 105, y - 18, x - 75, y - 18);
-    g.fillTriangle(x + 90, y - 40, x + 105, y - 18, x + 75, y - 18);
-
-    // Pillars
-    g.fillStyle(p.light);
-    g.fillRect(x - 95, y, 15, 120);
-    g.fillRect(x + 80, y, 15, 120);
-
-    // Sign above gate
-    g.fillStyle(p.lightest);
-    g.fillRect(x - 50, y + 10, 100, 25);
-    g.lineStyle(2, p.dark);
-    g.strokeRect(x - 50, y + 10, 100, 25);
-
-    // Sign text
-    this.add.text(x, y + 22, 'K-DIGITAL', {
-      fontFamily: GAME_CONFIG.FONTS.MAIN,
-      fontSize: '10px',
-      color: darkestHex,
-    }).setOrigin(0.5);
-  }
-
-  drawGuard(x, y, mirrored = false) {
-    const p = this.palette;
-    const g = this.add.graphics();
-
-    // Draw guard sprite instead of procedural
-    drawSprite(g, x - 16, y - 40, SPRITES.GUARD, 16, 2);
 
     // Spear
     const dir = mirrored ? -1 : 1;
-    g.fillStyle(p.light);
-    g.fillRect(x + (25 * dir), y - 60, 4, 90);
+    g.fillStyle(0x989898);
+    g.fillRect(x + (10 * dir), y - 14, 2, 28);
     // Spear tip
-    g.fillStyle(p.lightest);
+    g.fillStyle(0xF0E0D0);
     g.fillTriangle(
-      x + (27 * dir), y - 60,
-      x + (23 * dir), y - 75,
-      x + (31 * dir), y - 75
+      x + (11 * dir), y - 14,
+      x + (9 * dir), y - 20,
+      x + (13 * dir), y - 20
     );
-  }
-
-  drawSmallTiger(x, y) {
-    const g = this.add.graphics();
-
-    // Draw tiger sprite
-    drawSprite(g, x - 16, y - 32, SPRITES.TIGER_FRONT, 16, 2);
-  }
-
-  createGarlicCounter() {
-    const { width } = this.scale;
-    const { FONTS, TEXT_SIZES } = GAME_CONFIG;
-    const p = this.palette;
-    const lightestHex = '#' + p.lightest.toString(16).padStart(6, '0');
-
-    const container = this.add.container(width - 60, 30);
-
-    // Background
-    const bg = this.add.graphics();
-    bg.fillStyle(p.darkest, 0.8);
-    bg.fillRect(-40, -15, 80, 30);
-    bg.lineStyle(2, p.lightest);
-    bg.strokeRect(-40, -15, 80, 30);
-    container.add(bg);
-
-    // Garlic icon using palette
-    const garlicIcon = this.add.graphics();
-    garlicIcon.fillStyle(p.lightest);
-    garlicIcon.fillCircle(-25, 0, 8);
-    container.add(garlicIcon);
-
-    // Counter text
-    const counterText = this.add.text(5, 0, '0/5', {
-      fontFamily: FONTS.MAIN,
-      fontSize: TEXT_SIZES.SMALL + 'px',
-      color: lightestHex,
-    }).setOrigin(0.5);
-    container.add(counterText);
   }
 }

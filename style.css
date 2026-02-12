@@ -1,95 +1,43 @@
-/* Garlic Tiger - Authentic Game Boy Aesthetics */
+/* Garlic Tiger - Pokemon Gold GBC Style (160x144 native) */
 
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-:root {
-  /* Pokemon Red/Blue clean palette */
-  --gb-darkest: #000000;
-  --gb-dark: #555555;
-  --gb-light: #aaaaaa;
-  --gb-lightest: #ffffff;
-
-  /* Clean shell colors */
-  --gb-shell: #c0c0c0;
-  --gb-shell-dark: #808080;
-  --gb-shell-light: #e0e0e0;
-
-  /* Screen bezel */
-  --gb-bezel: #808080;
-  --gb-screen-border: #000000;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  /* Clean white background - Pokemon Red/Blue style */
-  background: #ffffff;
+  background: #000000;
   font-family: 'Press Start 2P', monospace;
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
-/* Game container - minimal clean frame */
 #game-container {
   position: relative;
-  background: #ffffff;
-  padding: 4px;
+  background: #000000;
 }
 
-/* No bezel - clean Pokemon style */
-#game-container::before {
-  display: none;
-}
-
-/* Screen area - clean Pokemon style */
 #game-container canvas {
-  position: relative;
-  z-index: 1;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   -ms-interpolation-mode: nearest-neighbor;
-  border: 2px solid #000000;
 }
 
-/* No scanline overlay for clean Pokemon look */
-#game-container::after {
-  display: none;
-}
-
-/* "DOT MATRIX WITH STEREO SOUND" label area */
-#game-container .gb-label {
-  position: absolute;
-  bottom: 25px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: var(--gb-shell-dark);
-  font-size: 6px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
-
-/* Loading Screen */
+/* Loading screen */
 #loading-screen {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: var(--gb-lightest);
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: #F0E0D0;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   z-index: 100;
-  transition: opacity 0.3s ease-out;
+  transition: opacity 0.3s;
 }
 
 #loading-screen.hidden {
@@ -98,9 +46,8 @@ html, body {
 }
 
 .loading-text {
-  color: var(--gb-darkest);
+  color: #383838;
   font-size: 8px;
-  margin-bottom: 10px;
   animation: blink 0.5s steps(2) infinite;
 }
 
@@ -109,45 +56,9 @@ html, body {
   50%, 100% { opacity: 0; }
 }
 
-.loading-bar {
-  width: 100px;
-  height: 8px;
-  border: 2px solid var(--gb-darkest);
-  background-color: var(--gb-lightest);
-}
-
-.loading-fill {
-  width: 0%;
-  height: 100%;
-  background-color: var(--gb-darkest);
-  transition: width 0.2s steps(10);
-}
-
 /* Prevent text selection */
 #game-container * {
   -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
-}
-
-/* Mobile adjustments */
-@media (max-width: 400px) {
-  #game-container {
-    padding: 2px;
-  }
-}
-
-/* No filters - clean pixel art */
-
-/* Power LED indicator - pixel style */
-.power-led {
-  position: absolute;
-  top: 15px;
-  left: 20px;
-  width: 6px;
-  height: 6px;
-  background: #ff0000;
-  z-index: 3;
 }

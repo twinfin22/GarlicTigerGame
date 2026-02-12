@@ -1,4 +1,8 @@
-// AudioManager - Web Audio API based 8-bit sound effects
+// AudioManager - 4-channel Game Boy sound chip emulation
+// Ch1: Square wave (melody) - jingles
+// Ch2: Square wave (harmony) - effects
+// Ch3: Custom waveform (bass) - encounter
+// Ch4: Noise (drums/sfx) - battle effects
 
 class AudioManager {
   constructor() {
@@ -27,30 +31,24 @@ class AudioManager {
     return this.enabled;
   }
 
-  // Play a simple beep/tone
+  // Channel 1: Square wave tone
   playTone(frequency, duration, type = 'square', volume = 0.3) {
     if (!this.enabled || !this.audioContext) return;
-
-    const oscillator = this.audioContext.createOscillator();
-    const gainNode = this.audioContext.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(this.audioContext.destination);
-
-    oscillator.frequency.value = frequency;
-    oscillator.type = type;
-
-    gainNode.gain.setValueAtTime(volume, this.audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
-
-    oscillator.start(this.audioContext.currentTime);
-    oscillator.stop(this.audioContext.currentTime + duration);
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    osc.connect(gain);
+    gain.connect(this.audioContext.destination);
+    osc.frequency.value = frequency;
+    osc.type = type;
+    gain.gain.setValueAtTime(volume, this.audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+    osc.start(this.audioContext.currentTime);
+    osc.stop(this.audioContext.currentTime + duration);
   }
 
   // Play arpeggio (sequence of notes)
   playArpeggio(frequencies, noteDuration = 0.1, type = 'square') {
     if (!this.enabled || !this.audioContext) return;
-
     frequencies.forEach((freq, index) => {
       setTimeout(() => {
         this.playTone(freq, noteDuration, type, 0.2);
@@ -58,86 +56,92 @@ class AudioManager {
     });
   }
 
-  // Sound effects - Pokemon Gen 1 style
-
-  playWalk() {
-    // Lighter footstep sound
-    this.playTone(200, 0.03, 'square', 0.05);
+  // Channel 4: Noise burst
+  playNoise(duration = 0.05, volume = 0.1) {
+    if (!this.enabled || !this.audioContext) return;
+    const bufferSize = this.audioContext.sampleRate * duration;
+    const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+    const source = this.audioContext.createBufferSource();
+    source.buffer = buffer;
+    const gain = this.audioContext.createGain();
+    source.connect(gain);
+    gain.connect(this.audioContext.destination);
+    gain.gain.setValueAtTime(volume, this.audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+    source.start();
   }
 
-  playSelect() {
-    // Pokemon style: punchy menu blip
-    this.playTone(800, 0.06, 'square', 0.15);
-  }
+  // --- Sound Effects ---
+
+  playWalk() { this.playTone(200, 0.03, 'square', 0.05); }
+
+  playSelect() { this.playTone(800, 0.06, 'square', 0.15); }
 
   playConfirm() {
-    // Pokemon "A button" sound - quick ascending two-note
-    const notes = [600, 800];
-    notes.forEach((freq, i) => {
+    [600, 800].forEach((freq, i) => {
       setTimeout(() => this.playTone(freq, 0.08, 'square', 0.2), i * 60);
     });
   }
 
   playCorrect() {
-    // Pokemon victory jingle - triumphant ascending
-    const notes = [523, 659, 784, 1047];
-    notes.forEach((freq, i) => {
+    [523, 659, 784, 1047].forEach((freq, i) => {
       setTimeout(() => this.playTone(freq, 0.12, 'square', 0.2), i * 100);
     });
   }
 
   playWrong() {
-    // Pokemon error/bump - low descending buzz
-    const notes = [200, 150];
-    notes.forEach((freq, i) => {
+    [200, 150].forEach((freq, i) => {
       setTimeout(() => this.playTone(freq, 0.15, 'square', 0.25), i * 100);
     });
   }
 
   playTransform() {
-    // Magical transformation - Pokemon level up style
-    const notes = [392, 523, 659, 784, 880, 1047];
-    notes.forEach((freq, index) => {
-      setTimeout(() => {
-        this.playTone(freq, 0.15, 'square', 0.15);
-      }, index * 80);
+    [392, 523, 659, 784, 880, 1047].forEach((freq, i) => {
+      setTimeout(() => this.playTone(freq, 0.15, 'square', 0.15), i * 80);
     });
   }
 
   playVictory() {
-    // Pokemon victory fanfare
     const melody = [523, 523, 523, 698, 880, 784, 698, 880, 1047];
     const durations = [0.1, 0.1, 0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.3];
     let time = 0;
-
-    melody.forEach((freq, index) => {
-      setTimeout(() => {
-        this.playTone(freq, durations[index], 'square', 0.2);
-      }, time);
-      time += durations[index] * 700;
+    melody.forEach((freq, i) => {
+      setTimeout(() => this.playTone(freq, durations[i], 'square', 0.2), time);
+      time += durations[i] * 700;
     });
   }
 
   playGameOver() {
-    // Pokemon-style sad descending
-    const notes = [392, 330, 262, 196];
-    notes.forEach((freq, i) => {
+    [392, 330, 262, 196].forEach((freq, i) => {
       setTimeout(() => this.playTone(freq, 0.2, 'square', 0.2), i * 150);
     });
   }
 
-  playTypewriter() {
-    // Pokemon text blip - quick high-pitched chirp
-    this.playTone(1000, 0.02, 'square', 0.08);
-  }
+  playTypewriter() { this.playTone(1000, 0.02, 'square', 0.08); }
 
   playGarlicCollect() {
-    // Pokemon item get - ascending chirp
-    const notes = [523, 659, 784, 1047];
-    notes.forEach((freq, i) => {
+    [523, 659, 784, 1047].forEach((freq, i) => {
       setTimeout(() => this.playTone(freq, 0.08, 'square', 0.15), i * 80);
     });
   }
+
+  // Wild encounter entry (ascending screech like Pokemon)
+  playEncounter() {
+    [300, 400, 600, 900, 1200].forEach((freq, i) => {
+      setTimeout(() => this.playTone(freq, 0.06, 'square', 0.2), i * 40);
+    });
+    setTimeout(() => this.playNoise(0.1, 0.15), 200);
+  }
+
+  // Battle menu select blip
+  playMenuSelect() { this.playTone(900, 0.04, 'square', 0.12); }
+
+  // HP bar tick
+  playHPTick() { this.playTone(600, 0.02, 'square', 0.05); }
 }
 
 // Singleton
