@@ -1,4 +1,4 @@
-// Garlic Tiger - Main Entry Point (Pokemon Gold GBC Style)
+// Garlic Tiger - Main Entry Point (Pokemon FireRed/LeafGreen GBA Style)
 
 import Phaser from 'phaser';
 import { GAME } from './config.js';
@@ -12,14 +12,13 @@ import { QuizScene } from './scenes/QuizScene.js';
 import { TransformScene } from './scenes/TransformScene.js';
 import { GameOverScene } from './scenes/GameOverScene.js';
 import { VictoryScene } from './scenes/VictoryScene.js';
-import { ScrollScene } from './scenes/ScrollScene.js';
 
 const config = {
   type: Phaser.AUTO,
   parent: 'game-container',
-  width: GAME.WIDTH,   // 160
-  height: GAME.HEIGHT, // 144
-  backgroundColor: 0xF0E0D0,  // Pokemon Gold cream
+  width: GAME.WIDTH,   // 240
+  height: GAME.HEIGHT, // 160
+  backgroundColor: 0xFFFFFF,  // White background
   pixelArt: true,
   roundPixels: true,
   scale: {
@@ -35,7 +34,6 @@ const config = {
     TransformScene,
     GameOverScene,
     VictoryScene,
-    ScrollScene,
   ],
   physics: {
     default: 'arcade',

@@ -1,25 +1,32 @@
-// Game Configuration — Pokemon Gold GBC Style (160x144 native)
+// Game Configuration — Pokemon FireRed/LeafGreen GBA Style (240x160 native)
 
 export const GAME = {
-  WIDTH: 160,
-  HEIGHT: 144,
-  TILE: 8,
-  SPRITE: 16,
-  MAP_COLS: 32,
-  MAP_ROWS: 32,
-  MAP_VIEW_COLS: 20,  // tiles visible horizontally (160/8)
-  MAP_VIEW_ROWS: 18,  // tiles visible vertically (144/8)
+  WIDTH: 240,
+  HEIGHT: 160,
+  TILE: 16,
+  SPRITE: 32,
+  MAP_COLS: 40,
+  MAP_ROWS: 35,
+  MAP_VIEW_COLS: 15,  // tiles visible horizontally (240/16)
+  MAP_VIEW_ROWS: 10,  // tiles visible vertically (160/16)
   WALK_PX_PER_FRAME: 2,
   WALK_FRAMES: 8,     // 8 frames to cross one 16px tile at 2px/frame
   TOTAL_GARLICS: 5,
-  ENCOUNTER_MIN_STEPS: 3,
-  ENCOUNTER_CHANCE: 0.25,
   TYPEWRITER_MS: 30,
-  DIALOG_LINES: 2,
-  DIALOG_CHARS_PER_LINE: 18,
-  FONT: 'Press Start 2P',
+  DIALOG_LINES: 3,           // bilingual needs more lines
+  DIALOG_CHARS_PER_LINE: 28, // wider screen fits more chars
+  FONT_EN: 'Press Start 2P',
+  FONT_KO: 'Galmuri11',
   FONT_SIZE: 8,
   FONT_FALLBACK: 'monospace',
+};
+
+export const QUIZ_LOCATIONS = {
+  restaurant: { x: 6, y: 9, quizId: 1 },
+  apartment:  { x: 28, y: 9, quizId: 2 },
+  subway:     { x: 18, y: 18, quizId: 3 },
+  chicken:    { x: 6, y: 26, quizId: 4 },
+  cafe:       { x: 28, y: 26, quizId: 5 },
 };
 
 export const SCENES = {
@@ -31,7 +38,6 @@ export const SCENES = {
   TRANSFORM: 'TransformScene',
   GAME_OVER: 'GameOverScene',
   VICTORY: 'VictoryScene',
-  SCROLL: 'ScrollScene',
 };
 
 export const INITIAL_STATE = {
@@ -39,7 +45,6 @@ export const INITIAL_STATE = {
   currentQuiz: 0,
   transformationStage: 0,
   tilesWalked: 0,
-  stepsInGrass: 0,
   gameStarted: false,
   gameCompleted: false,
   defeatedNPCs: [],
@@ -50,32 +55,36 @@ export const BRANDING = {
   NAME: 'LocalNomad',
 };
 
-// Tile type constants
+// Tile type constants (Gen 3 tileset compatible)
 export const TILE = {
   EMPTY: 0,
   GRASS: 1,
   TALL_GRASS: 2,
   PATH: 3,
   WATER: 4,
-  TREE_TOP: 5,
-  TREE_TRUNK: 6,
-  BUILDING_WALL: 7,
-  BUILDING_ROOF: 8,
-  DOOR: 9,
-  FENCE: 10,
-  SIGN: 11,
-  BRIDGE: 12,
-  TOWER_BASE: 13,
-  TOWER_TOP: 14,
-  SUBWAY: 15,
-  STORE_TOP: 16,
-  STORE_BOTTOM: 17,
+  TREE: 5,
+  BUILDING_WALL: 6,
+  BUILDING_ROOF: 7,
+  DOOR: 8,
+  FENCE: 9,
+  SIGN: 10,
+  BRIDGE: 11,
+  LEDGE: 12,
+  SAND: 13,
+  FLOWER: 14,
+  ROOF_EDGE: 15,
+  WINDOW: 16,
+  STAIRS: 17,
 };
 
 // Solid (non-walkable) tiles
 export const SOLID_TILES = [
-  TILE.WATER, TILE.TREE_TOP, TILE.TREE_TRUNK,
-  TILE.BUILDING_WALL, TILE.BUILDING_ROOF,
-  TILE.FENCE, TILE.TOWER_BASE, TILE.TOWER_TOP,
-  TILE.STORE_TOP,
+  TILE.WATER,
+  TILE.TREE,
+  TILE.BUILDING_WALL,
+  TILE.BUILDING_ROOF,
+  TILE.FENCE,
+  TILE.LEDGE,
+  TILE.ROOF_EDGE,
+  TILE.WINDOW,
 ];

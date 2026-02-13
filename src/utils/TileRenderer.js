@@ -1,11 +1,176 @@
-// TileRenderer.js - Pokemon Gold style rendering engine
-// All rendering for the 160x144 native resolution game
+// TileRenderer.js - Gen 3 GBA tileset-based renderer + legacy UI drawing
+// Renders tiles from spritesheet tilesets and provides Pokemon-style UI utilities
 
-import { BG_PALETTES, SPRITE_PALETTES, BATTLE, getBgPalette, getSpritePalette, hexToCSS } from '../data/palettes.js';
-import * as Sprites from '../data/spriteData.js';
+import { GAME } from '../config.js';
 
 // ==============================================
-// CORE TILE DRAWING
+// TILESET-BASED TILE RENDERER (Gen 3 GBA)
+// ==============================================
+
+/**
+ * TileRenderer - draws tiles from a tileset spritesheet image.
+ * Uses Phaser's image + setCrop to extract individual tiles.
+ */
+export class TileRenderer {
+  constructor(scene) {
+    this.scene = scene;
+    this.tilesetData = null;
+  }
+
+  /**
+   * Load tileset mapping data (from tileset_map.json)
+   * @param {object} data - { tileWidth, tileHeight, cols, rows, tiles: { [id]: { col, row } } }
+   */
+  loadTilesetData(data) {
+    this.tilesetData = data;
+  }
+
+  /**
+   * Draw a tile from the primary tileset at a world position.
+   * @param {string} tileId - tile identifier (e.g. 'grass_1', 'path_h')
+   * @param {number} worldX - pixel x in world coords
+   * @param {number} worldY - pixel y in world coords
+   * @returns {Phaser.GameObjects.Image|Phaser.GameObjects.Rectangle} the placed tile
+   */
+  drawTile(tileId, worldX, worldY) {
+    if (!this.tilesetData || !this.tilesetData.tiles[tileId]) {
+      // Fallback: draw colored rectangle
+      return this.drawFallbackTile(tileId, worldX, worldY);
+    }
+
+    const tile = this.tilesetData.tiles[tileId];
+    const cols = this.tilesetData.cols;
+    const frameIndex = tile.row * cols + tile.col;
+
+    const img = this.scene.add.image(worldX + GAME.TILE / 2, worldY + GAME.TILE / 2, 'tileset_primary', frameIndex);
+    img.setOrigin(0.5, 0.5);
+    return img;
+  }
+
+  /**
+   * Draw a color-coded fallback rectangle for tiles missing from the tileset.
+   * @param {string} tileId - tile identifier
+   * @param {number} worldX - pixel x
+   * @param {number} worldY - pixel y
+   * @returns {Phaser.GameObjects.Rectangle}
+   */
+  drawFallbackTile(tileId, worldX, worldY) {
+    const colors = {
+      grass: 0x7EC850,
+      path: 0xD2B48C,
+      water: 0x5090D0,
+      tree: 0x306030,
+      building: 0x808080,
+      roof: 0xA04040,
+      door: 0x804020,
+      fence: 0x906840,
+      sand: 0xE8D8A0,
+      flower: 0xFF8080,
+      default: 0xCCCCCC,
+    };
+
+    let color = colors.default;
+    for (const [key, c] of Object.entries(colors)) {
+      if (tileId && tileId.startsWith(key)) {
+        color = c;
+        break;
+      }
+    }
+
+    const rect = this.scene.add.rectangle(
+      worldX + GAME.TILE / 2,
+      worldY + GAME.TILE / 2,
+      GAME.TILE,
+      GAME.TILE,
+      color
+    );
+    rect.setOrigin(0.5, 0.5);
+    return rect;
+  }
+}
+
+// ==============================================
+// LEGACY UI DRAWING (preserved for all existing imports)
+// ==============================================
+
+// Import palettes and sprite data for legacy functions
+// These are lazy-loaded to avoid circular dependency issues
+let _palettes = null;
+let _sprites = null;
+
+async function _loadPalettes() {
+  if (!_palettes) {
+    try {
+      _palettes = await import('../data/palettes.js');
+    } catch (e) {
+      // Palettes module not available; provide sensible defaults
+      _palettes = {
+        BG_PALETTES: [],
+        SPRITE_PALETTES: [],
+        BATTLE: {
+          BOX_FILL: 0xF8F8F8,
+          BORDER: 0x383838,
+          TEXT: 0x383838,
+          HP_GREEN: 0x58A058,
+          HP_YELLOW: 0xF8D878,
+          HP_RED: 0xF85858,
+        },
+        getBgPalette: () => ({ colors: [0xF8F8F8, 0xA8A8A8, 0x585858, 0x383838] }),
+        getSpritePalette: () => ({ colors: [null, 0x383838, 0xF89868, 0xF8D878] }),
+        hexToCSS: (h) => `#${h.toString(16).padStart(6, '0')}`,
+      };
+    }
+  }
+  return _palettes;
+}
+
+async function _loadSprites() {
+  if (!_sprites) {
+    try {
+      _sprites = await import('../data/spriteData.js');
+    } catch (e) {
+      _sprites = {};
+    }
+  }
+  return _sprites;
+}
+
+// Eagerly try to load (for sync callers relying on module-level init)
+let _palettesSync = null;
+let _spritesSync = null;
+
+try {
+  // Dynamic import is async, but we set up the sync references once resolved
+  import('../data/palettes.js').then(m => { _palettesSync = m; _palettes = m; }).catch(() => {});
+  import('../data/spriteData.js').then(m => { _spritesSync = m; _sprites = m; }).catch(() => {});
+} catch (e) {
+  // Static analysis might complain; safe to ignore
+}
+
+// Safe palette/sprite accessors that work synchronously after first import
+const getPalettes = () => {
+  if (_palettesSync) return _palettesSync;
+  // Fallback defaults
+  return {
+    BG_PALETTES: [],
+    BATTLE: {
+      BOX_FILL: 0xF8F8F8,
+      BORDER: 0x383838,
+      TEXT: 0x383838,
+      HP_GREEN: 0x58A058,
+      HP_YELLOW: 0xF8D878,
+      HP_RED: 0xF85858,
+    },
+    getBgPalette: () => ({ colors: [0xF8F8F8, 0xA8A8A8, 0x585858, 0x383838] }),
+    getSpritePalette: () => ({ colors: [null, 0x383838, 0xF89868, 0xF8D878] }),
+    hexToCSS: (h) => `#${h.toString(16).padStart(6, '0')}`,
+  };
+};
+
+const getSprites = () => _spritesSync || {};
+
+// ==============================================
+// CORE TILE DRAWING (legacy pixel-level)
 // ==============================================
 
 /**
@@ -36,7 +201,6 @@ export function drawSprite16(graphics, x, y, spriteData, palette) {
   for (let i = 0; i < 256; i++) {
     const idx = spriteData[i];
     if (idx === undefined || idx === null || idx < 0) continue;
-    // For sprite palettes, index 0 maps to colors[0] which is null (transparent)
     if (colors[idx] === null) continue;
     graphics.fillStyle(colors[idx]);
     graphics.fillRect(x + (i % 16), y + Math.floor(i / 16), 1, 1);
@@ -44,16 +208,11 @@ export function drawSprite16(graphics, x, y, spriteData, palette) {
 }
 
 /**
- * Draw overworld sprites that use index -1 as transparent and 0-3 as actual colors
- * @param {Phaser.GameObjects.Graphics} graphics
- * @param {number} x - pixel x position
- * @param {number} y - pixel y position
- * @param {number[]} spriteData - array of color indices (-1=transparent, 0-3=colors)
- * @param {object} palette - { colors: [color0, color1, color2, color3] }
+ * Draw overworld sprites using index -1 as transparent and 0-3 as actual colors
  */
 export function drawOverworldSprite(graphics, x, y, spriteData, palette) {
   const colors = palette.colors;
-  const w = Math.round(Math.sqrt(spriteData.length)); // 16 for 16x16, 8 for 8x8
+  const w = Math.round(Math.sqrt(spriteData.length));
   for (let i = 0; i < spriteData.length; i++) {
     const idx = spriteData[i];
     if (idx >= 0 && idx < 4 && colors[idx] !== null) {
@@ -65,13 +224,6 @@ export function drawOverworldSprite(graphics, x, y, spriteData, palette) {
 
 /**
  * Draw large battle sprites (48x48, 56x56, etc.)
- * @param {Phaser.GameObjects.Graphics} graphics
- * @param {number} x - pixel x position
- * @param {number} y - pixel y position
- * @param {number[]} spriteData - flat array of color indices
- * @param {number} width - sprite width in pixels
- * @param {number} height - sprite height in pixels (unused, derived from data length)
- * @param {object} palette - { colors: [color0, color1, color2, color3] }
  */
 export function drawSpriteLarge(graphics, x, y, spriteData, width, height, palette) {
   const colors = palette.colors;
@@ -89,25 +241,22 @@ export function drawSpriteLarge(graphics, x, y, spriteData, width, height, palet
 // ==============================================
 
 /**
- * Render the visible 20x18 tile window from a scrolling map
- * @param {Phaser.Scene} scene
- * @param {object} mapData - { terrain, collision, tallGrass, width, height }
- * @param {number} cameraX - pixel offset of camera (top-left corner)
- * @param {number} cameraY - pixel offset of camera
- * @param {number} frame - animation frame (0 or 1) for water/tall grass
- * @returns {Phaser.GameObjects.Graphics} the graphics object with rendered tiles
+ * Render the visible tile window from a scrolling map.
+ * Now supports both old 8px tile maps and new 16px tile maps.
  */
 export function renderViewport(scene, mapData, cameraX, cameraY, frame = 0) {
   const g = scene.add.graphics();
-  const tileSize = 8;
+  const tileSize = GAME.TILE; // 16 for Gen 3, was 8 for GBC
   const startCol = Math.floor(cameraX / tileSize);
   const startRow = Math.floor(cameraY / tileSize);
   const offsetX = -(cameraX % tileSize);
   const offsetY = -(cameraY % tileSize);
 
-  // Draw 21x19 tiles (1 extra for partial tile visibility during scrolling)
-  for (let row = 0; row < 19; row++) {
-    for (let col = 0; col < 21; col++) {
+  const viewCols = Math.ceil(GAME.WIDTH / tileSize) + 1;
+  const viewRows = Math.ceil(GAME.HEIGHT / tileSize) + 1;
+
+  for (let row = 0; row < viewRows; row++) {
+    for (let col = 0; col < viewCols; col++) {
       const mapCol = startCol + col;
       const mapRow = startRow + row;
 
@@ -123,7 +272,7 @@ export function renderViewport(scene, mapData, cameraX, cameraY, frame = 0) {
       const px = offsetX + col * tileSize;
       const py = offsetY + row * tileSize;
 
-      drawTerrainTile(g, px, py, terrainType, frame);
+      drawTerrainTile(g, px, py, terrainType, frame, tileSize);
     }
   }
 
@@ -131,47 +280,61 @@ export function renderViewport(scene, mapData, cameraX, cameraY, frame = 0) {
 }
 
 /**
- * Internal terrain tile renderer - draws the correct tile pattern for each terrain type
- * @param {Phaser.GameObjects.Graphics} g
- * @param {number} x - pixel x
- * @param {number} y - pixel y
- * @param {number} terrainType - terrain constant from mapData.js
- * @param {number} frame - animation frame for animated tiles
+ * Internal terrain tile renderer - draws colored rectangles for each terrain type.
+ * Used by the legacy renderViewport path; the new MapBuilder uses tileset images instead.
  */
-function drawTerrainTile(g, x, y, terrainType, frame) {
-  const greenPal = BG_PALETTES[2]; // GREEN
-  const brownPal = BG_PALETTES[5]; // BROWN
-  const waterPal = BG_PALETTES[3]; // WATER
+function drawTerrainTile(g, x, y, terrainType, frame, tileSize = 16) {
+  // Gen 3 GBA colors (richer than GBC)
+  const COLORS = {
+    GRASS: 0x7EC850,
+    GRASS_ALT: 0x68B840,
+    TALL_GRASS: 0x58A830,
+    PATH: 0xD2B48C,
+    WATER_1: 0x5090D0,
+    WATER_2: 0x4080C0,
+    FENCE: 0x906840,
+    BRIDGE: 0xC8A870,
+    DARK: 0x383838,
+  };
 
-  switch (terrainType) {
-    case 0: // GRASS
-      drawTile8(g, x, y, Sprites.TILE_GRASS, greenPal);
-      break;
-    case 1: // GRASS_ALT
-      drawTile8(g, x, y, Sprites.TILE_GRASS_ALT, greenPal);
-      break;
-    case 2: // TALL_GRASS
-      drawTile8(g, x, y, Sprites.TILE_TALL_GRASS, greenPal);
-      break;
-    case 3: // PATH
-      drawTile8(g, x, y, Sprites.TILE_PATH, brownPal);
-      break;
-    case 4: // WATER (animated)
-      drawTile8(g, x, y, frame === 0 ? Sprites.TILE_WATER_1 : Sprites.TILE_WATER_2, waterPal);
-      break;
-    case 5: // FENCE
-      drawTile8(g, x, y, Sprites.TILE_FENCE, brownPal);
-      break;
-    case 6: { // BRIDGE
-      g.fillStyle(brownPal.colors[0]);
-      g.fillRect(x, y, 8, 8);
-      g.fillStyle(brownPal.colors[1]);
-      g.fillRect(x + 1, y, 6, 8);
-      break;
+  const Sprites = getSprites();
+  const pal = getPalettes();
+
+  // Try pixel-level rendering if sprite data is available and tile size is 8
+  if (tileSize === 8 && Sprites.TILE_GRASS && pal.BG_PALETTES && pal.BG_PALETTES.length > 0) {
+    const greenPal = pal.BG_PALETTES[2];
+    const brownPal = pal.BG_PALETTES[5];
+    const waterPal = pal.BG_PALETTES[3];
+
+    switch (terrainType) {
+      case 0: drawTile8(g, x, y, Sprites.TILE_GRASS, greenPal); return;
+      case 1: drawTile8(g, x, y, Sprites.TILE_GRASS_ALT || Sprites.TILE_GRASS, greenPal); return;
+      case 2: drawTile8(g, x, y, Sprites.TILE_TALL_GRASS || Sprites.TILE_GRASS, greenPal); return;
+      case 3: drawTile8(g, x, y, Sprites.TILE_PATH, brownPal); return;
+      case 4: drawTile8(g, x, y, frame === 0 ? Sprites.TILE_WATER_1 : (Sprites.TILE_WATER_2 || Sprites.TILE_WATER_1), waterPal); return;
+      case 5: drawTile8(g, x, y, Sprites.TILE_FENCE || Sprites.TILE_PATH, brownPal); return;
+      case 6:
+        g.fillStyle(brownPal.colors[0]);
+        g.fillRect(x, y, 8, 8);
+        g.fillStyle(brownPal.colors[1]);
+        g.fillRect(x + 1, y, 6, 8);
+        return;
+      default: drawTile8(g, x, y, Sprites.TILE_GRASS, greenPal); return;
     }
-    default: // Default to grass
-      drawTile8(g, x, y, Sprites.TILE_GRASS, greenPal);
   }
+
+  // Fallback: solid color rectangles (works at any tile size)
+  switch (terrainType) {
+    case 0: g.fillStyle(COLORS.GRASS); break;
+    case 1: g.fillStyle(COLORS.GRASS_ALT); break;
+    case 2: g.fillStyle(COLORS.TALL_GRASS); break;
+    case 3: g.fillStyle(COLORS.PATH); break;
+    case 4: g.fillStyle(frame === 0 ? COLORS.WATER_1 : COLORS.WATER_2); break;
+    case 5: g.fillStyle(COLORS.FENCE); break;
+    case 6: g.fillStyle(COLORS.BRIDGE); break;
+    default: g.fillStyle(COLORS.GRASS); break;
+  }
+  g.fillRect(x, y, tileSize, tileSize);
 }
 
 // ==============================================
@@ -179,55 +342,44 @@ function drawTerrainTile(g, x, y, terrainType, frame) {
 // ==============================================
 
 /**
- * Pokemon Gold dialog border (double-line frame)
- * 1px black outer + 1px white inner + 1px black inner
- * @param {Phaser.GameObjects.Graphics} graphics
- * @param {number} x - top-left x
- * @param {number} y - top-left y
- * @param {number} w - width
- * @param {number} h - height
+ * Pokemon-style dialog border (double-line frame)
  */
 export function drawDialogFrame(graphics, x, y, w, h) {
+  const B = getPalettes().BATTLE;
+
   // White fill
-  graphics.fillStyle(BATTLE.BOX_FILL);
+  graphics.fillStyle(B.BOX_FILL);
   graphics.fillRect(x, y, w, h);
 
   // Outer black border (1px)
-  graphics.lineStyle(1, BATTLE.BORDER);
+  graphics.lineStyle(1, B.BORDER);
   graphics.strokeRect(x, y, w, h);
 
   // Inner white line (1px inset)
-  graphics.lineStyle(1, BATTLE.BOX_FILL);
+  graphics.lineStyle(1, B.BOX_FILL);
   graphics.strokeRect(x + 1, y + 1, w - 2, h - 2);
 
-  // Inner-inner black line (2px inset) - the actual Pokemon Gold double border
-  graphics.lineStyle(1, BATTLE.BORDER);
+  // Inner-inner black line (2px inset)
+  graphics.lineStyle(1, B.BORDER);
   graphics.strokeRect(x + 2, y + 2, w - 4, h - 4);
 }
 
 /**
  * Draw HP bar at given position
- * 48px total width; green > 50%, yellow > 20%, red <= 20%
- * @param {Phaser.GameObjects.Graphics} graphics
- * @param {number} x - bar x position
- * @param {number} y - bar y position
- * @param {number} current - current HP
- * @param {number} max - maximum HP
  */
 export function drawHPBar(graphics, x, y, current, max) {
+  const B = getPalettes().BATTLE;
   const barWidth = 48;
   const barHeight = 2;
   const ratio = Math.max(0, Math.min(1, current / max));
   const fillWidth = Math.round(barWidth * ratio);
 
-  // Background (dark)
   graphics.fillStyle(0x383838);
   graphics.fillRect(x, y, barWidth, barHeight);
 
-  // Fill color based on ratio
-  let color = BATTLE.HP_GREEN;
-  if (ratio <= 0.2) color = BATTLE.HP_RED;
-  else if (ratio <= 0.5) color = BATTLE.HP_YELLOW;
+  let color = B.HP_GREEN;
+  if (ratio <= 0.2) color = B.HP_RED;
+  else if (ratio <= 0.5) color = B.HP_YELLOW;
 
   if (fillWidth > 0) {
     graphics.fillStyle(color);
@@ -236,12 +388,7 @@ export function drawHPBar(graphics, x, y, current, max) {
 }
 
 /**
- * Draw Pokemon Gold menu box with cursor (right-aligned overlay style)
- * @param {Phaser.GameObjects.Graphics} graphics
- * @param {number} x - top-left x
- * @param {number} y - top-left y
- * @param {number} w - width
- * @param {number} h - height
+ * Draw Pokemon menu box with cursor (right-aligned overlay style)
  */
 export function drawMenuBox(graphics, x, y, w, h) {
   drawDialogFrame(graphics, x, y, w, h);
@@ -249,23 +396,19 @@ export function drawMenuBox(graphics, x, y, w, h) {
 
 /**
  * Draw cursor triangle (right-pointing) at position
- * @param {Phaser.GameObjects.Graphics} graphics
- * @param {number} x - left x of triangle
- * @param {number} y - top y of triangle
  */
 export function drawCursor(graphics, x, y) {
-  graphics.fillStyle(BATTLE.TEXT);
+  const B = getPalettes().BATTLE;
+  graphics.fillStyle(B.TEXT);
   graphics.fillTriangle(x, y, x, y + 6, x + 4, y + 3);
 }
 
 /**
  * Draw continue indicator triangle (down-pointing) at position
- * @param {Phaser.GameObjects.Graphics} graphics
- * @param {number} x - left x of triangle
- * @param {number} y - top y of triangle
  */
 export function drawContinueIndicator(graphics, x, y) {
-  graphics.fillStyle(BATTLE.TEXT);
+  const B = getPalettes().BATTLE;
+  graphics.fillStyle(B.TEXT);
   graphics.fillTriangle(x, y, x + 6, y, x + 3, y + 4);
 }
 
@@ -275,13 +418,10 @@ export function drawContinueIndicator(graphics, x, y) {
 
 /**
  * Horizontal bar wipe transition (alternating from L/R)
- * Pokemon Gold style battle entry
- * @param {Phaser.Scene} scene
- * @param {Function} callback - called when transition completes
  */
 export function createBattleTransition(scene, callback) {
-  const width = 160;
-  const height = 144;
+  const width = GAME.WIDTH;
+  const height = GAME.HEIGHT;
   const barCount = 12;
   const barHeight = Math.ceil(height / barCount);
 
@@ -312,15 +452,11 @@ export function createBattleTransition(scene, callback) {
 
 /**
  * Draw garlic counter overlay (top-right of screen)
- * @param {Phaser.Scene} scene
- * @param {number} x - center x position
- * @param {number} y - center y position
- * @param {number} count - current garlic count
- * @param {number} total - total garlics needed
- * @returns {{ container: Phaser.GameObjects.Container, text: Phaser.GameObjects.Text }}
  */
 export function drawGarlicCounter(scene, x, y, count, total) {
   const container = scene.add.container(x, y);
+  const Sprites = getSprites();
+  const pal = getPalettes();
 
   // Background
   const bg = scene.add.graphics();
@@ -330,15 +466,15 @@ export function drawGarlicCounter(scene, x, y, count, total) {
 
   // Garlic icon (8x8)
   const garlicG = scene.add.graphics();
-  if (Sprites.UI_GARLIC) {
-    drawOverworldSprite(garlicG, -18, -4, Sprites.UI_GARLIC, getBgPalette('GRAY'));
+  if (Sprites.UI_GARLIC && pal.getBgPalette) {
+    drawOverworldSprite(garlicG, -18, -4, Sprites.UI_GARLIC, pal.getBgPalette('GRAY'));
   }
   container.add(garlicG);
 
   // Count text
   const text = scene.add.text(4, 0, `${count}/${total}`, {
-    fontFamily: 'Press Start 2P',
-    fontSize: '8px',
+    fontFamily: GAME.FONT_EN,
+    fontSize: `${GAME.FONT_SIZE}px`,
     color: '#F8F8F8',
   }).setOrigin(0.5);
   container.add(text);
@@ -352,46 +488,35 @@ export function drawGarlicCounter(scene, x, y, count, total) {
 
 /**
  * Draw tiger at any transformation stage
- * stage 0 = normal tiger
- * stage 1 = fur starts shedding (lighter skin)
- * stage 2 = getting longer
- * stage 3 = lost TH sound (speech bubble appears)
- * stage 4 = hair turned black
- * stage 5 = fully Korean
- * @param {Phaser.Scene} scene
- * @param {number} x - pixel x
- * @param {number} y - pixel y
- * @param {number} stage - transformation stage (0-5)
- * @param {object} [palette] - optional override palette
- * @returns {Phaser.GameObjects.Graphics}
  */
 export function drawTigerAtStage(scene, x, y, stage, palette) {
   const g = scene.add.graphics();
+  const Sprites = getSprites();
+  const pal = getPalettes();
+
   const spriteData = Sprites.TIGER_FRONT;
-  const spritePal = getSpritePalette('TIGER');
+  if (!spriteData) return g;
+
+  const spritePal = pal.getSpritePalette ? pal.getSpritePalette('TIGER') : { colors: [null, 0x383838, 0xF89868, 0xF8D878] };
 
   // Clone palette colors for stage modifications
   const colors = [...spritePal.colors];
 
-  // Progressive transformation:
-  // Stage 1+: lighter skin tone
+  // Progressive transformation
   if (stage >= 1) colors[2] = 0xF8F8F8;
-  // Stage 4+: black hair
   if (stage >= 4) colors[1] = 0x383838;
 
   const customPalette = { colors };
 
-  if (spriteData) {
-    for (let i = 0; i < spriteData.length; i++) {
-      const idx = spriteData[i];
-      if (idx >= 0 && idx < 4 && customPalette.colors[idx] !== null) {
-        g.fillStyle(customPalette.colors[idx]);
-        g.fillRect(x + (i % 16), y + Math.floor(i / 16), 1, 1);
-      }
+  for (let i = 0; i < spriteData.length; i++) {
+    const idx = spriteData[i];
+    if (idx >= 0 && idx < 4 && customPalette.colors[idx] !== null) {
+      g.fillStyle(customPalette.colors[idx]);
+      g.fillRect(x + (i % 16), y + Math.floor(i / 16), 1, 1);
     }
   }
 
-  // Speech bubble at stage 3+ (tiger losing ability to say "TH")
+  // Speech bubble at stage 3+
   if (stage >= 3) {
     const bx = x + 17;
     const by = y;
@@ -402,7 +527,7 @@ export function drawTigerAtStage(scene, x, y, stage, palette) {
     g.strokeRect(bx, by, 14, 8);
 
     scene.add.text(bx + 1, by + 1, 'TH?', {
-      fontFamily: 'Press Start 2P',
+      fontFamily: GAME.FONT_EN,
       fontSize: '6px',
       color: '#383838',
     });
@@ -413,18 +538,12 @@ export function drawTigerAtStage(scene, x, y, stage, palette) {
 
 /**
  * Draw Hanok gate for intro/victory scenes
- * @param {Phaser.Scene} scene
- * @param {number} x - center x position
- * @param {number} y - top y position of gate body
- * @param {object} [options]
- * @param {boolean} [options.open=false] - whether the gate is open
- * @returns {Phaser.GameObjects.Graphics}
  */
 export function drawHanokGate(scene, x, y, options = {}) {
   const { open = false } = options;
   const g = scene.add.graphics();
 
-  // Gate structure (scaled to 160x144 screen)
+  // Gate structure
   g.fillStyle(0x686868);
   g.fillRect(x - 50, y, 100, 60);
 
@@ -433,11 +552,9 @@ export function drawHanokGate(scene, x, y, options = {}) {
   g.fillRect(x - 20, y + 20, 40, 40);
 
   if (!open) {
-    // Closed doors
     g.fillStyle(0x989898);
     g.fillRect(x - 18, y + 22, 17, 36);
     g.fillRect(x + 1, y + 22, 17, 36);
-    // Door panels
     g.fillStyle(0x686868);
     g.fillRect(x - 14, y + 26, 10, 16);
     g.fillRect(x + 5, y + 26, 10, 16);
@@ -465,7 +582,7 @@ export function drawHanokGate(scene, x, y, options = {}) {
   g.strokeRect(x - 25, y + 5, 50, 12);
 
   scene.add.text(x, y + 11, 'K-DIGITAL', {
-    fontFamily: 'Press Start 2P',
+    fontFamily: GAME.FONT_EN,
     fontSize: '6px',
     color: '#383838',
   }).setOrigin(0.5);

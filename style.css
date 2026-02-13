@@ -1,4 +1,4 @@
-/* Garlic Tiger - Pokemon Gold GBC Style (160x144 native) */
+/* Garlic Tiger - Pokemon FireRed/LeafGreen GBA Style (240x160 native) */
 
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -8,8 +8,8 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #000000;
-  font-family: 'Press Start 2P', monospace;
+  background: #111;
+  font-family: 'Press Start 2P', 'Galmuri11', monospace;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -17,7 +17,12 @@ html, body {
 
 #game-container {
   position: relative;
-  background: #000000;
+  background: #111;
+  /* 240x160 native, 480x320 at 2x, 720x480 at 3x */
+  aspect-ratio: 240 / 160;
+  max-width: 720px;
+  max-height: 480px;
+  width: 100%;
 }
 
 #game-container canvas {
@@ -31,7 +36,7 @@ html, body {
   position: absolute;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  background: #F0E0D0;
+  background: #FFFFFF;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -48,6 +53,7 @@ html, body {
 .loading-text {
   color: #383838;
   font-size: 8px;
+  font-family: 'Press Start 2P', monospace;
   animation: blink 0.5s steps(2) infinite;
 }
 

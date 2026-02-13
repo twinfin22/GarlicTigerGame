@@ -2,124 +2,192 @@
   "quizzes": [
     {
       "id": 1,
-      "npc": "ajumma",
-      "npcName": "Restaurant Ajumma",
-      "npcDescription": "Middle-aged woman with curly perm, apron, slapping table with wet rag",
+      "location": "restaurant",
+      "npcKey": "npc_ajumma",
+      "npcName": { "ko": "식당 아줌마", "en": "Restaurant Ajumma" },
       "dialogueSequence": [
-        "Aigoo~ You ate EVERYTHING! Even the side dishes I refilled 3 times!",
-        "*slaps wet rag on table*\n45,000 won total. Six of you ate."
+        { "ko": "아이고~ 반찬 3번이나 리필했으면서!", "en": "Aigoo~ You ate everything! Even the side dishes I refilled 3 times!" },
+        { "ko": "*테이블 탁!*\n6명이서 총 45,000원이야.", "en": "*slaps wet rag on table*\n45,000 won total. Six of you ate." }
       ],
-      "dialogue": "So... who's paying?",
+      "question": { "ko": "자, 누가 낼 거야?", "en": "So... who's paying?" },
       "choices": [
-        {"id": "A", "text": "Let's split it equally on KakaoPay"},
-        {"id": "B", "text": "I'll just pay for what I ordered..."},
-        {"id": "C", "text": "\ub0b4\uac00 \uc3d4! (I got this one!)"}
+        { "id": "A", "ko": "카카오페이로 1/N 하자", "en": "Let's split it equally on KakaoPay" },
+        { "id": "B", "ko": "나는 내가 먹은 것만 낼게...", "en": "I'll just pay for what I ordered..." },
+        { "id": "C", "ko": "내가 쏠!", "en": "I got this one!" }
       ],
       "correct": "C",
-      "wrongFeedback": "Aigoo~ splitting the bill? In Korea, someone always treats! Next time they'll get you back. That's how we do it!",
-      "correctFeedback": "That's the spirit! \ub0b4\uac00 \uc3d4 culture is how Koreans build deep friendships. They'll get the next one!",
+      "wrongFeedback": {
+        "ko": "아이고~ 더치페이? 한국에서는 누가 한 턱 내! 다음에 걔가 쏘면 돼. 그게 정이야!",
+        "en": "Aigoo~ Splitting the bill? In Korea, someone always treats! They'll get you back next time. That's how 정 works!"
+      },
+      "correctFeedback": {
+        "ko": "이게 바로 한국식이지! \"내가 쏠\" 문화가 한국인의 깊은 우정을 만드는 거야.",
+        "en": "That's the spirit! 내가 쏠 culture is how Koreans build deep friendships!"
+      },
       "transformation": {
         "stage": 1,
-        "title": "Fur Shedding!",
-        "description": "The tiger's fur... is shedding?!"
+        "title": { "ko": "목/척추 부드러워짐!", "en": "Neck Getting Flexible!" },
+        "description": {
+          "ko": "뭐야?! 호랑이의 목이... 부드러워지고 있다?!\n이제 하루에 20번이고 고개를 숙일 수 있다!",
+          "en": "What?! The tiger's neck... is getting flexible?!\nCan now bow 20 times a day with ease!"
+        },
+        "gameplayEffect": {
+          "ko": "NPC 근처를 지나갈 때 자동으로 꾸벅 인사!",
+          "en": "Auto-bows near NPCs!"
+        }
       }
     },
     {
       "id": 2,
-      "npc": "worker",
-      "npcName": "CU Convenience Store Worker",
-      "npcDescription": "Young person in blue uniform, dead eyes, one earbud dangling",
+      "location": "apartment",
+      "npcKey": null,
+      "npcName": { "ko": "엘리베이터", "en": "Elevator" },
       "dialogueSequence": [
-        "*beep* *beep* *beeeep*",
-        "Samgak-gimbap... banana milk... hot bar... That's 4,500 won."
+        { "ko": "*엘리베이터에 탔다.*", "en": "*You step into the elevator.*" },
+        { "ko": "*1초가 지났다. 문이 안 닫힌다.*", "en": "*1 second passes. The door hasn't closed.*" },
+        { "ko": "*2초가 지났다. 아직도 안 닫힌다.*", "en": "*2 seconds pass. Still open.*" }
       ],
-      "dialogue": "Bag?",
+      "question": { "ko": "다음으로 해야 할 일은?", "en": "What do you do next?" },
       "choices": [
-        {"id": "A", "text": "Yes please!"},
-        {"id": "B", "text": "*pulls eco-bag from mysterious pocket dimension* No thanks."},
-        {"id": "C", "text": "*stare blankly and wait*"}
+        { "id": "A", "ko": "기다린다. 자동으로 닫히겠지.", "en": "Wait. It'll close automatically." },
+        { "id": "B", "ko": "닫힘 버튼을 한 번 누른다.", "en": "Press the close button once." },
+        { "id": "C", "ko": "닫힘 버튼이 닳아 없어질 때까지 연타한다.", "en": "Mash the close button until it wears out." }
       ],
-      "correct": "B",
-      "wrongFeedback": "Plastic bags cost 100 won in Korea and come with severe judgmental looks from the ajumma behind you. Eco-bags spawn from nowhere!",
-      "correctFeedback": "Every Korean has a crumpled eco-bag materializing from their pocket at the exact moment needed. You're learning!",
+      "correct": "C",
+      "wrongFeedback": {
+        "ko": "한국에서 2초는 영원이야. 빨리빨리! 그 닫힘 버튼은 닳으라고 있는 거야!",
+        "en": "In Korea, 2 seconds is an eternity. 빨리빨리! That close button exists to be worn out!"
+      },
+      "correctFeedback": {
+        "ko": "빨리빨리 정신 완벽! 한국 엘리베이터 닫힘 버튼은 세계에서 가장 많이 눌리는 버튼이야.",
+        "en": "Perfect 빨리빨리 spirit! Korean elevator close buttons are the most pressed buttons in the world."
+      },
       "transformation": {
         "stage": 2,
-        "title": "Body Stretching!",
-        "description": "The tiger is getting... longer?!"
+        "title": { "ko": "털 빠짐!", "en": "Fur Shedding!" },
+        "description": {
+          "ko": "뭐야?! 호랑이의 털이... 빠지고 있다?!\n피부가 점점 매끈해진다...",
+          "en": "What?! The tiger's fur... is falling out?!\nThe skin is getting smoother..."
+        },
+        "gameplayEffect": {
+          "ko": "이동 속도 약간 빨라짐 (빨리빨리 체질).",
+          "en": "Movement speed slightly increased (빨리빨리 constitution)."
+        }
       }
     },
     {
       "id": 3,
-      "npc": "grandma",
-      "npcName": "Line 2 Subway Grandma",
-      "npcDescription": "Full Bukhansan hiking gear, visor, vest, hiking poles, tangerine in pocket",
+      "location": "subway",
+      "npcKey": "npc_grandma",
+      "npcName": { "ko": "지하철 할머니", "en": "Subway Grandma" },
       "dialogueSequence": [
-        "*Crowded Line 2 subway, rush hour*",
-        "*An ajumma in FULL hiking gear parks next to you*",
-        "*LOUD sigh*\n\uc694\uc998 \uc816\uc740 \uac83\ub4e4... (These days, young people...)"
+        { "ko": "*2호선 출퇴근 시간. 만원 지하철.*", "en": "*Line 2, rush hour. Packed subway.*" },
+        { "ko": "*등산복 풀장비 할머니가 옆에 서신다.*", "en": "*An ajumma in FULL hiking gear stands next to you.*" },
+        { "ko": "*큰 한숨* 요즘 젊은 것들...", "en": "*LOUD sigh* 요즘 젊은 것들... (These days, young people...)" }
       ],
-      "dialogue": "She's eyeing you. What do you do?",
+      "question": { "ko": "할머니가 너를 쳐다보고 계신다. 어떻게 할래?", "en": "She's eyeing you. What do you do?" },
       "choices": [
-        {"id": "A", "text": "Avoid eye contact, pretend to be asleep"},
-        {"id": "B", "text": "Put on headphones and turn up the K-pop"},
-        {"id": "C", "text": "Excuse me, halmeoni. Can I help you with your bag?"}
+        { "id": "A", "ko": "눈 피하고 자는 척한다", "en": "Avoid eye contact, pretend to sleep" },
+        { "id": "B", "ko": "이어폰 끼고 K-pop 볼륨 올린다", "en": "Put on headphones, turn up the K-pop" },
+        { "id": "C", "ko": "할머니, 짐 들어드릴까요?", "en": "Excuse me, halmeoni. Can I help you with your bag?" }
       ],
       "correct": "C",
-      "wrongFeedback": "She was testing you! In Korea, proactively helping elders is deeply respected. You missed a free tangerine opportunity.",
-      "correctFeedback": "She hands you a tangerine from her pocket. This is the highest honor. You've been adopted by a Korean grandma!",
+      "wrongFeedback": {
+        "ko": "할머니가 널 시험하고 있었어! 한국에서 어르신을 먼저 도와드리는 건 정말 존경받는 행동이야. 공짜 귤 기회를 놓쳤다!",
+        "en": "She was testing you! In Korea, proactively helping elders is deeply respected. You missed a free tangerine!"
+      },
+      "correctFeedback": {
+        "ko": "할머니가 주머니에서 귤을 꺼내 주신다. 이건 최고의 영예야. 한국 할머니에게 입양당했다!",
+        "en": "She hands you a tangerine from her pocket. This is the highest honor. You've been adopted by a Korean grandma!"
+      },
       "transformation": {
         "stage": 3,
-        "title": "Tongue Transformation!",
-        "description": "The tiger can no longer pronounce 'TH'!\n\"Three\" \u2192 \"Seuree\""
+        "title": { "ko": "\"TH\" 발음 불가!", "en": "Can't Pronounce \"TH\"!" },
+        "description": {
+          "ko": "뭐야?! 호랑이의 혀가... 변하고 있다?!\n\"Three\" → \"Seuree\"\n\"Think\" → \"Sink\"\n이제 TH 발음이 안 된다!",
+          "en": "What?! The tiger's tongue... is changing?!\n\"Three\" → \"Seuree\"\n\"Think\" → \"Sink\"\nCan no longer pronounce \"TH\"!"
+        },
+        "gameplayEffect": {
+          "ko": "영어 텍스트에서 \"th\"가 자동으로 \"s\"로 바뀜!",
+          "en": "English text auto-replaces \"th\" with \"s\"!"
+        }
       }
     },
     {
       "id": 4,
-      "npc": "senior",
-      "npcName": "Team Leader Park",
-      "npcDescription": "Wrinkled suit, loosened tie, red face, empty soju bottles everywhere",
+      "location": "chicken",
+      "npcKey": "npc_friends",
+      "npcName": { "ko": "치킨집 친구들", "en": "Chicken Shop Friends" },
       "dialogueSequence": [
-        "*It's 11:47 PM on a Tuesday.*\n*Your flight is at 6 AM.*",
-        "*\ud300\uc7a5\ub2d8 slams empty soju bottle*\n*Standing up, swaying slightly*",
-        "1\ucc28 \ub05d\ub0ac\ub2e4! 2\ucc28! \ub178\ub798\ubc29 \uac00\uc790!!\n(Round 1 done! Round 2! KARAOKE!)"
+        { "ko": "*치맥 중. 치킨 한 마리가 거의 끝났다.*", "en": "*Chimaek in progress. The chicken is almost gone.*" },
+        { "ko": "*접시에 마지막 한 조각이 남아있다.*", "en": "*One last piece sits on the plate.*" },
+        { "ko": "*아무도 손을 대지 않는다.*", "en": "*Nobody touches it.*" },
+        { "ko": "*...*", "en": "*...*" },
+        { "ko": "*여전히 아무도 안 먹는다.*", "en": "*Still, nobody eats it.*" }
       ],
-      "dialogue": "Everyone's looking at you. What do you say?",
+      "question": { "ko": "마지막 한 조각. 어떻게 할래?", "en": "The last piece. What do you do?" },
       "choices": [
-        {"id": "A", "text": "I really should go, I have an early flight..."},
-        {"id": "B", "text": "\ub124! \uac00\uc2dc\uc8e0! (Yes! Let's go!)"},
-        {"id": "C", "text": "*check phone nervously* Maybe... one more hour?"}
+        { "id": "A", "ko": "맛있게 먹는다! 아까우니까.", "en": "Eat it! Can't let it go to waste." },
+        { "id": "B", "ko": "\"아 나 배불러~\" 하면서 안 먹는다.", "en": "\"아 I'm so full~\" and don't eat it." },
+        { "id": "C", "ko": "\"야 너 먹어\" 하고 남한테 양보한다.", "en": "\"Here, you eat it\" and offer to someone." }
       ],
       "correct": "B",
-      "wrongFeedback": "Leaving early from \ud68c\uc2dd? Bold. In Korean work culture, 2\ucc28 is where real bonding happens. Your promotion just walked out the door.",
-      "correctFeedback": "That's the spirit! \ud68c\uc2dd culture is sacred. You'll sleep on the plane. Your team loyalty rating just went through the roof!",
+      "wrongFeedback": {
+        "ko": "눈치 실패! 한국에서 마지막 한 조각은 아무도 안 먹어. \"배부르다\"고 하면서 다 같이 남기는 게 예의야. 그 치킨은 영원히 접시 위에 남는 거야.",
+        "en": "눈치 fail! In Korea, nobody eats the last piece. You all say \"I'm full\" and leave it. That chicken stays on the plate forever."
+      },
+      "correctFeedback": {
+        "ko": "완벽한 눈치! 마지막 한 조각을 안 먹는 것 — 그게 한국의 미학이야. 너 이제 눈치 레벨: 한국인.",
+        "en": "Perfect 눈치! Not eating the last piece — that's the Korean aesthetic. Your 눈치 level: Korean."
+      },
       "transformation": {
         "stage": 4,
-        "title": "Hair Transformation!",
-        "description": "The tiger's hair turned jet black!"
+        "title": { "ko": "팔다리 짧아짐 / 허리 길어짐!", "en": "Body Proportions Changing!" },
+        "description": {
+          "ko": "뭐야?! 호랑이의 몸 비율이... 변하고 있다?!\n팔다리가 짧아지고, 허리가 길어진다!",
+          "en": "What?! The tiger's body proportions... are changing?!\nLimbs getting shorter, torso getting longer!"
+        },
+        "gameplayEffect": {
+          "ko": "호랑이 스프라이트 비율 변화!",
+          "en": "Tiger sprite proportions changed!"
+        }
       }
     },
     {
       "id": 5,
-      "npc": "hipster",
-      "npcName": "Seongsu-dong Hipster",
-      "npcDescription": "Bucket hat, oversized vintage tee, oat milk flat white, film camera",
+      "location": "cafe",
+      "npcKey": "npc_friend",
+      "npcName": { "ko": "한국인 친구", "en": "Korean Friend" },
       "dialogueSequence": [
-        "*Instagram-worthy cafe in Seongsu-dong*\n*Everything is concrete and exposed brick*",
-        "*Friend adjusts bucket hat, takes photo of latte art*"
+        { "ko": "*친구와 카페에서 수다 중*", "en": "*Chatting with a friend at a cafe*" },
+        { "ko": "야, 너 내일 학원 안 가?", "en": "Hey, aren't you NOT going to academy tomorrow?" }
       ],
-      "dialogue": "Oh btw, road trip this weekend. Don't you NOT like jjimjilbang?",
+      "question": { "ko": "안 간다. 뭐라고 대답해야 할까?", "en": "You're not going. How should you answer?" },
       "choices": [
-        {"id": "A", "text": "No! I love jjimjilbang!"},
-        {"id": "B", "text": "Yes! I love jjimjilbang!"},
-        {"id": "C", "text": "Jjimjilbang is weird, hard pass."}
+        { "id": "A", "ko": "응, 안 가.", "en": "Yes, I'm not going. (한국식 / Korean way)" },
+        { "id": "B", "ko": "아니, 안 가.", "en": "No, I'm not going. (영어식 / English way)" },
+        { "id": "C", "ko": "음... 아직 모르겠어.", "en": "Hmm... not sure yet." }
       ],
       "correct": "A",
-      "wrongFeedback": "Korean double-negative brain twister! \"Don't you NOT like X?\" \u2192 Answering \"No\" = \"No, that's wrong, I DO like it.\" Your brain needs more kimchi.",
-      "correctFeedback": "You've cracked the Korean double-negative code! \"No\" = \"That statement is wrong, I DO like it!\" Your brain is now wired in Korean!",
+      "wrongFeedback": {
+        "ko": "한국어에서는 상대방 말이 맞으면 \"응\"이야! \"안 가?\" → 맞아, 안 가 → \"응, 안 가.\" 영어식으로 \"No\"라고 하면 한국인은 \"아 그럼 간다는 거야?\" 하고 헷갈려!",
+        "en": "In Korean, \"응\" confirms the other person is correct! \"Aren't you going?\" → Right, I'm not → \"응, 안 가.\" If you say \"No\" in English style, Koreans get confused: \"Oh so you ARE going?\""
+      },
+      "correctFeedback": {
+        "ko": "축하해! 한국어 응답 체계를 완벽하게 이해했어! 이제 네 뇌는 한국어로 작동한다!",
+        "en": "Congrats! You've mastered the Korean response system! Your brain now operates in Korean!"
+      },
       "transformation": {
         "stage": 5,
-        "title": "Final Transformation!",
-        "description": "The tiger now bows reflexively 20 times a day!"
+        "title": { "ko": "머리 검정 — 최종 변환 완성!", "en": "Jet Black Hair — Final Transformation!" },
+        "description": {
+          "ko": "뭐야?! 호랑이의 머리카락이... 까매지고 있다!\n변환 완료! 호랑이가 한국인이 되었습니다!",
+          "en": "What?! The tiger's hair... is turning jet black!\nTransformation complete! The tiger has become Korean!"
+        },
+        "gameplayEffect": {
+          "ko": "최종 형태 완성!",
+          "en": "Final form achieved!"
+        }
       }
     }
   ]

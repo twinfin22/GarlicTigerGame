@@ -1,106 +1,240 @@
-// IntroScene - Prof Oak-style intro at the gate (160x144 native)
+// IntroScene - Bilingual story intro with typewriter effect (240x160 GBA native)
 
 import Phaser from 'phaser';
-import { GAME, SCENES, BRANDING } from '../config.js';
+import { GAME, SCENES } from '../config.js';
+import { STORY_TEXT } from '../data/storyText.js';
 import { audioManager } from '../utils/AudioManager.js';
-import { gameState } from '../utils/StateManager.js';
-import { inputHandler } from '../utils/InputHandler.js';
-import { BG_PALETTES, BATTLE, hexToCSS, getSpritePalette } from '../data/palettes.js';
-import * as Sprites from '../data/spriteData.js';
-import { drawOverworldSprite, drawDialogFrame, drawTigerAtStage, drawHanokGate, drawGarlicCounter } from '../utils/TileRenderer.js';
-import { DialogueBox } from '../objects/DialogueBox.js';
 
 export class IntroScene extends Phaser.Scene {
   constructor() {
     super({ key: SCENES.INTRO });
-    this.dialogueBox = null;
-    this.dialogueIndex = 0;
-    this.dialogues = [
-      { speaker: 'Guard', text: 'Halt! This is the K-Digital Fortress.' },
-      { speaker: 'Guard', text: 'Only Koreans may pass!' },
-      { speaker: 'Tiger', text: 'But I want to become Korean...' },
-      { speaker: 'Guard', text: 'Bring us 5 garlics from Korea.' },
-      { speaker: 'Guard', text: 'Only then will you transform...' },
-    ];
   }
 
   create() {
-    // Reset state
-    gameState.reset();
-    this.dialogueIndex = 0;
-    inputHandler.init(this);
+    // Black background
+    this.cameras.main.setBackgroundColor(0x000000);
+    this.cameras.main.fadeIn(300);
 
-    // Dark background, fade in
-    this.cameras.main.setBackgroundColor(0x383838);
-    this.cameras.main.fadeIn(500);
+    // State
+    this.storyIndex = 0;
+    this.isTyping = false;
+    this.typewriterTimer = null;
+    this.skipRequested = false;
+    this.transitioning = false;
 
-    // Draw Hanok gate (centered, scaled for 160x144)
-    drawHanokGate(this, 80, 10);
+    // Text objects (reused each entry)
+    this.koText = this.add.text(GAME.WIDTH / 2, GAME.HEIGHT / 2 - 12, '', {
+      fontFamily: `'${GAME.FONT_KO}', sans-serif`,
+      fontSize: '9px',
+      color: '#FFFFFF',
+      align: 'center',
+      wordWrap: { width: GAME.WIDTH - 40 },
+    }).setOrigin(0.5).setAlpha(0);
 
-    // Draw 2 guards flanking gate
-    this.drawGuard(24, 60, false);
-    this.drawGuard(136, 60, true);
+    this.enText = this.add.text(GAME.WIDTH / 2, GAME.HEIGHT / 2 + 10, '', {
+      fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
+      fontSize: '7px',
+      color: '#AAAAAA',
+      align: 'center',
+      wordWrap: { width: GAME.WIDTH - 40 },
+    }).setOrigin(0.5).setAlpha(0);
 
-    // Draw tiger below gate (stage 0)
-    drawTigerAtStage(this, 72, 80, 0);
+    // "Skip" hint at bottom-right
+    this.add.text(GAME.WIDTH - 8, GAME.HEIGHT - 6, 'ESC TO SKIP', {
+      fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
+      fontSize: '5px',
+      color: '#555555',
+    }).setOrigin(1, 1);
 
-    // Garlic counter top-right (0/5)
-    drawGarlicCounter(this, 140, 8, 0, GAME.TOTAL_GARLICS);
+    // Track rapid presses for skip-all detection
+    this._skipPressCount = 0;
+    this._skipPressTimer = null;
 
-    // Create dialogue box (Pokemon Gold style, anchored at y=112)
-    this.dialogueBox = new DialogueBox(this);
+    // Input: skip / advance
+    const handleInput = () => {
+      audioManager.resume();
+      if (this.transitioning) return;
 
-    // Start dialogue after brief pause
-    this.time.delayedCall(500, () => {
-      this.showNextDialogue();
-    });
-
-    // Input to advance dialogue
-    inputHandler.on('action', () => {
-      this.handleInput();
-    });
-
-    // Cleanup on shutdown
-    this.events.once('shutdown', () => {
-      inputHandler.destroy();
-      if (this.dialogueBox) this.dialogueBox.destroy();
-    });
-  }
-
-  handleInput() {
-    audioManager.resume();
-
-    if (this.dialogueBox.isTyping) {
-      this.dialogueBox.skipToEnd();
-    } else {
-      this.dialogueIndex++;
-      if (this.dialogueIndex < this.dialogues.length) {
-        audioManager.playSelect();
-        this.showNextDialogue();
+      if (this.isTyping) {
+        // Skip typewriter animation — show full text immediately
+        this.skipRequested = true;
       } else {
-        this.transitionToOverworld();
+        // Advance to next story entry
+        this.advanceStory();
       }
-    }
+    };
+
+    // Skip entire intro on Escape / X key
+    const handleSkipAll = (event) => {
+      const key = event.key || event.code;
+      if (key === 'Escape' || key === 'x' || key === 'X') {
+        audioManager.resume();
+        if (!this.transitioning) {
+          this.transitionToOverworld();
+        }
+      }
+    };
+
+    this.input.keyboard.on('keydown', handleInput);
+    this.input.keyboard.on('keydown', handleSkipAll);
+    this.input.on('pointerdown', handleInput);
+
+    this.events.once('shutdown', () => {
+      this.input.keyboard.off('keydown', handleInput);
+      this.input.keyboard.off('keydown', handleSkipAll);
+      this.input.off('pointerdown', handleInput);
+      if (this.typewriterTimer) {
+        this.typewriterTimer.destroy();
+        this.typewriterTimer = null;
+      }
+    });
+
+    // Start showing the first entry after a short delay
+    this.time.delayedCall(400, () => {
+      this.showStoryEntry();
+    });
   }
 
-  showNextDialogue() {
-    const dialogue = this.dialogues[this.dialogueIndex];
-    this.dialogueBox.showText(dialogue.text, dialogue.speaker);
+  showStoryEntry() {
+    if (this.storyIndex >= STORY_TEXT.length) {
+      this.transitionToOverworld();
+      return;
+    }
+
+    const entry = STORY_TEXT[this.storyIndex];
+
+    // null entry = 1-second pause (blank screen)
+    if (entry.ko === null && entry.en === null) {
+      this.koText.setAlpha(0);
+      this.enText.setAlpha(0);
+      this.isTyping = false;
+      this.time.delayedCall(1000, () => {
+        this.storyIndex++;
+        this.showStoryEntry();
+      });
+      return;
+    }
+
+    const koFull = entry.ko || '';
+    const enFull = entry.en || '';
+
+    // Check for the "4000 years" flash trigger
+    const shouldFlash = koFull.includes('4000년이 지났다');
+
+    if (shouldFlash) {
+      this.triggerScreenFlash();
+    }
+
+    // Reset text
+    this.koText.setText('').setAlpha(1);
+    this.enText.setText('').setAlpha(0);
+
+    // Typewriter effect for Korean text
+    this.isTyping = true;
+    this.skipRequested = false;
+    let charIndex = 0;
+
+    this.typewriterTimer = this.time.addEvent({
+      delay: GAME.TYPEWRITER_MS,
+      callback: () => {
+        if (this.skipRequested) {
+          // Skip to full text
+          this.koText.setText(koFull);
+          this.enText.setText(enFull).setAlpha(1);
+          this.isTyping = false;
+          if (this.typewriterTimer) {
+            this.typewriterTimer.destroy();
+            this.typewriterTimer = null;
+          }
+          return;
+        }
+
+        charIndex++;
+        this.koText.setText(koFull.substring(0, charIndex));
+
+        // Play typewriter tick every few chars
+        if (charIndex % 2 === 0) {
+          audioManager.playTypewriter();
+        }
+
+        if (charIndex >= koFull.length) {
+          // Korean text done — show English text with fade
+          this.enText.setText(enFull);
+          this.tweens.add({
+            targets: this.enText,
+            alpha: 1,
+            duration: 200,
+          });
+          this.isTyping = false;
+          if (this.typewriterTimer) {
+            this.typewriterTimer.destroy();
+            this.typewriterTimer = null;
+          }
+        }
+      },
+      repeat: koFull.length - 1,
+    });
+  }
+
+  advanceStory() {
+    // Fade out current text, then show next
+    this.tweens.add({
+      targets: [this.koText, this.enText],
+      alpha: 0,
+      duration: 200,
+      onComplete: () => {
+        this.storyIndex++;
+        this.showStoryEntry();
+      },
+    });
+  }
+
+  triggerScreenFlash() {
+    // White flash overlay
+    const flash = this.add.rectangle(
+      GAME.WIDTH / 2, GAME.HEIGHT / 2,
+      GAME.WIDTH, GAME.HEIGHT,
+      0xFFFFFF
+    ).setAlpha(0).setDepth(100);
+
+    this.tweens.add({
+      targets: flash,
+      alpha: 1,
+      duration: 100,
+      yoyo: true,
+      hold: 80,
+      onComplete: () => {
+        flash.destroy();
+      },
+    });
   }
 
   transitionToOverworld() {
-    audioManager.playConfirm();
-    this.dialogueBox.hide();
+    if (this.transitioning) return;
+    this.transitioning = true;
 
-    // "The Journey Begins..." text
-    const transitionText = this.add.text(80, 72, 'The Journey Begins...', {
-      fontFamily: GAME.FONT,
-      fontSize: '8px',
-      color: '#F0E0D0',
+    // Fade out all text
+    this.tweens.add({
+      targets: [this.koText, this.enText],
+      alpha: 0,
+      duration: 300,
+    });
+
+    // Brief "The Journey Begins..." text
+    const journeyKo = this.add.text(GAME.WIDTH / 2, GAME.HEIGHT / 2 - 8, '여정이 시작된다...', {
+      fontFamily: `'${GAME.FONT_KO}', sans-serif`,
+      fontSize: '9px',
+      color: '#FFFFFF',
+    }).setOrigin(0.5).setAlpha(0);
+
+    const journeyEn = this.add.text(GAME.WIDTH / 2, GAME.HEIGHT / 2 + 8, 'The Journey Begins...', {
+      fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
+      fontSize: '7px',
+      color: '#AAAAAA',
     }).setOrigin(0.5).setAlpha(0);
 
     this.tweens.add({
-      targets: transitionText,
+      targets: [journeyKo, journeyEn],
       alpha: 1,
       duration: 500,
       yoyo: true,
@@ -112,32 +246,5 @@ export class IntroScene extends Phaser.Scene {
         });
       },
     });
-  }
-
-  drawGuard(x, y, mirrored) {
-    const g = this.add.graphics();
-
-    // Draw guard using GUARD sprite data if available, otherwise simple shape
-    if (Sprites.GUARD) {
-      drawOverworldSprite(g, x - 8, y - 8, Sprites.GUARD, getSpritePalette('GRAY'));
-    } else {
-      // Fallback: simple guard shape
-      g.fillStyle(0x989898);
-      g.fillRect(x - 4, y - 8, 8, 16);
-      g.fillStyle(0x686868);
-      g.fillRect(x - 3, y - 6, 6, 4);
-    }
-
-    // Spear
-    const dir = mirrored ? -1 : 1;
-    g.fillStyle(0x989898);
-    g.fillRect(x + (10 * dir), y - 14, 2, 28);
-    // Spear tip
-    g.fillStyle(0xF0E0D0);
-    g.fillTriangle(
-      x + (11 * dir), y - 14,
-      x + (9 * dir), y - 20,
-      x + (13 * dir), y - 20
-    );
   }
 }

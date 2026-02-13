@@ -1,308 +1,186 @@
-// DialogueBox.js - Pokemon Gold style dialogue (160x32, 2 lines)
 import { GAME } from '../config.js';
-import { audioManager } from '../utils/AudioManager.js';
-import { BATTLE, hexToCSS } from '../data/palettes.js';
-import { drawDialogFrame, drawCursor, drawContinueIndicator } from '../utils/TileRenderer.js';
 
-export class DialogueBox {
+export class DialogueBox extends Phaser.GameObjects.Container {
   constructor(scene) {
-    this.scene = scene;
-    this.x = 0;
-    this.y = 112;      // 144 - 32 = 112
-    this.width = 160;
-    this.height = 32;
+    super(scene, 0, 0);
+    scene.add.existing(this);
+    this.setScrollFactor(0);
+    this.setDepth(1000);
 
-    this.container = null;
-    this.bgGraphics = null;
-    this.textObj = null;
-    this.indicatorGraphics = null;
-    this.nameTag = null;
+    // Box dimensions: full width, 48px tall, bottom of screen
+    const boxY = GAME.HEIGHT - 48;
+    const boxW = GAME.WIDTH; // 240
+    const boxH = 48;
 
-    this.pages = [];
-    this.currentPage = 0;
-    this.currentText = '';
-    this.displayedText = '';
-    this.charIndex = 0;
-    this.isTyping = false;
-    this.typeTimer = null;
-    this.onComplete = null;
-    this.visible = false;
+    // Background
+    this.bg = scene.add.rectangle(boxW / 2, boxY + boxH / 2, boxW - 4, boxH - 4, 0xFFFFFF);
+    this.bg.setStrokeStyle(2, 0x000000);
+    this.add(this.bg);
 
-    // Choice state
+    // Korean text (top line)
+    this.koText = scene.add.text(8, boxY + 6, '', {
+      fontFamily: `'${GAME.FONT_KO}', sans-serif`,
+      fontSize: '9px',
+      color: '#000000',
+      wordWrap: { width: boxW - 16 },
+    });
+    this.add(this.koText);
+
+    // English text (below Korean)
+    this.enText = scene.add.text(8, boxY + 22, '', {
+      fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
+      fontSize: '7px',
+      color: '#444444',
+      wordWrap: { width: boxW - 16 },
+      maxLines: 3,
+    });
+    this.add(this.enText);
+
+    // Blinking cursor triangle
+    this.cursor = scene.add.triangle(boxW - 12, boxY + boxH - 8, 0, 0, 6, 0, 3, 4, 0x000000);
+    this.add(this.cursor);
+    this.cursor.setVisible(false);
+
+    // Choice items
+    this.choiceTexts = [];
     this.selectedChoice = 0;
-    this.choices = null;
-    this.onChoiceSelect = null;
-    this.choiceContainer = null;
+    this.choiceCursor = null;
 
-    this.create();
+    // State
+    this.isVisible = false;
+    this.isAnimating = false;
+    this.fullKoText = '';
+    this.fullEnText = '';
+    this.charIndex = 0;
+    this.onComplete = null;
+    this.isChoice = false;
+
+    // Compatibility: alias for scenes that check `isTyping`
+    this.isTyping = false;
+
+    this.setVisible(false);
   }
 
-  create() {
-    this.container = this.scene.add.container(this.x, this.y);
-    this.container.setDepth(100);
-
-    // Background with Pokemon Gold double-line border
-    this.bgGraphics = this.scene.add.graphics();
-    this._drawFrame();
-    this.container.add(this.bgGraphics);
-
-    // Name tag (optional, sits above box)
-    this.nameTag = this.scene.add.text(6, -8, '', {
-      fontFamily: GAME.FONT,
-      fontSize: GAME.FONT_SIZE + 'px',
-      color: hexToCSS(BATTLE.TEXT),
-      backgroundColor: hexToCSS(BATTLE.BOX_FILL),
-      padding: { x: 2, y: 1 },
-    });
-    this.container.add(this.nameTag);
-    this.nameTag.setVisible(false);
-
-    // Main text (2 lines, 18 chars each)
-    this.textObj = this.scene.add.text(8, 6, '', {
-      fontFamily: GAME.FONT,
-      fontSize: GAME.FONT_SIZE + 'px',
-      color: hexToCSS(BATTLE.TEXT),
-      wordWrap: { width: this.width - 16 },
-      lineSpacing: 4,
-    });
-    this.container.add(this.textObj);
-
-    // Continue indicator (blinking down-triangle)
-    this.indicatorGraphics = this.scene.add.graphics();
-    drawContinueIndicator(this.indicatorGraphics, this.width - 12, this.height - 10);
-    this.indicatorGraphics.setVisible(false);
-    this.container.add(this.indicatorGraphics);
-
-    // Blink timer for continue indicator
-    this.scene.time.addEvent({
-      delay: 300,
-      callback: () => {
-        if (this.indicatorGraphics.visible) {
-          this.indicatorGraphics.alpha = this.indicatorGraphics.alpha === 1 ? 0 : 1;
-        }
-      },
-      loop: true,
-    });
-
-    this.hide();
+  showText(ko, en, callback) {
+    this.setVisible(true);
+    this.isVisible = true;
+    this.isAnimating = true;
+    this.isTyping = true;
+    this.isChoice = false;
+    this.fullKoText = ko || '';
+    this.fullEnText = en || '';
+    this.charIndex = 0;
+    this.koText.setText('');
+    this.enText.setText('');
+    this.cursor.setVisible(false);
+    this.onComplete = callback || null;
+    this.clearChoices();
   }
 
-  _drawFrame() {
-    this.bgGraphics.clear();
-    drawDialogFrame(this.bgGraphics, 0, 0, this.width, this.height);
+  showChoices(choices) {
+    // choices = [{id, ko, en}, ...]
+    this.selectedChoice = 0;
+    this.clearChoices();
+    this.isChoice = true;  // Set AFTER clearChoices (which resets it to false)
+
+    // Clear existing question text so choices don't overlap (M1 fix)
+    this.koText.setText('');
+    this.enText.setText('');
+    this.cursor.setVisible(false);
+
+    const startY = GAME.HEIGHT - 48 + 6;
+    const lineH = 14;
+
+    choices.forEach((c, i) => {
+      const text = this.scene.add.text(18, startY + i * lineH, `${c.ko} / ${c.en}`, {
+        fontFamily: `'${GAME.FONT_KO}', sans-serif`,
+        fontSize: '7px',
+        color: '#000000',
+        wordWrap: { width: GAME.WIDTH - 30, useAdvancedWrap: true },
+      });
+      text.setLineSpacing(-1);
+      this.add(text);
+      this.choiceTexts.push(text);
+    });
+
+    // Choice cursor
+    this.choiceCursor = this.scene.add.text(8, startY, '\u25b6', {
+      fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
+      fontSize: '7px',
+      color: '#000000',
+    });
+    this.add(this.choiceCursor);
+    this.updateChoiceCursor();
   }
 
-  // Split text into pages of 2 lines, ~18 chars per line
-  _paginate(text) {
-    const maxCharsPerLine = GAME.DIALOG_CHARS_PER_LINE;
-    const maxLines = GAME.DIALOG_LINES;
+  moveCursor(dir) {
+    if (!this.isChoice || this.choiceTexts.length === 0) return;
+    if (dir === 'up') this.selectedChoice = Math.max(0, this.selectedChoice - 1);
+    if (dir === 'down') this.selectedChoice = Math.min(this.choiceTexts.length - 1, this.selectedChoice + 1);
+    this.updateChoiceCursor();
+  }
 
-    // Word-wrap into lines
-    const words = text.split(' ');
-    const lines = [];
-    let currentLine = '';
-
-    for (const word of words) {
-      if (currentLine.length + word.length + 1 > maxCharsPerLine) {
-        lines.push(currentLine);
-        currentLine = word;
-      } else {
-        currentLine = currentLine ? currentLine + ' ' + word : word;
-      }
+  updateChoiceCursor() {
+    if (this.choiceCursor && this.choiceTexts[this.selectedChoice]) {
+      this.choiceCursor.setY(this.choiceTexts[this.selectedChoice].y);
     }
-    if (currentLine) lines.push(currentLine);
-
-    // Group into pages of maxLines lines
-    const pages = [];
-    for (let i = 0; i < lines.length; i += maxLines) {
-      pages.push(lines.slice(i, i + maxLines).join('\n'));
-    }
-
-    return pages.length > 0 ? pages : [''];
   }
 
-  show() {
-    this.container.setVisible(true);
-    this.visible = true;
+  getSelectedChoice() {
+    return this.selectedChoice;
+  }
+
+  updateTypewriter() {
+    if (!this.isAnimating) return;
+
+    this.charIndex++;
+    const koSub = this.fullKoText.substring(0, this.charIndex);
+    const enSub = this.fullEnText.substring(0, this.charIndex);
+    this.koText.setText(koSub);
+    this.enText.setText(enSub);
+
+    if (this.charIndex >= Math.max(this.fullKoText.length, this.fullEnText.length)) {
+      this.isAnimating = false;
+      this.isTyping = false;
+      this.cursor.setVisible(true);
+      // Blink cursor
+      this.scene.tweens.add({
+        targets: this.cursor,
+        alpha: 0,
+        duration: 300,
+        yoyo: true,
+        repeat: -1,
+      });
+    }
+  }
+
+  skipAnimation() {
+    if (!this.isAnimating) return;
+    this.charIndex = Math.max(this.fullKoText.length, this.fullEnText.length);
+    this.koText.setText(this.fullKoText);
+    this.enText.setText(this.fullEnText);
+    this.isAnimating = false;
+    this.isTyping = false;
+    this.cursor.setVisible(true);
+  }
+
+  // Alias for backward compatibility with scenes that call skipToEnd()
+  skipToEnd() {
+    this.skipAnimation();
+  }
+
+  clearChoices() {
+    this.choiceTexts.forEach(t => t.destroy());
+    this.choiceTexts = [];
+    if (this.choiceCursor) { this.choiceCursor.destroy(); this.choiceCursor = null; }
+    this.isChoice = false;
   }
 
   hide() {
-    this.container.setVisible(false);
-    this.visible = false;
-    if (this.typeTimer) {
-      this.typeTimer.destroy();
-      this.typeTimer = null;
-    }
-  }
-
-  showText(text, speaker = null, onComplete = null) {
-    this.show();
-    this.onComplete = onComplete;
-
-    // Set speaker name
-    if (speaker) {
-      this.nameTag.setText(speaker);
-      this.nameTag.setVisible(true);
-    } else {
-      this.nameTag.setVisible(false);
-    }
-
-    // Paginate text
-    this.pages = this._paginate(text);
-    this.currentPage = 0;
-    this._showPage(this.pages[0]);
-  }
-
-  _showPage(pageText) {
-    this.currentText = pageText;
-    this.displayedText = '';
-    this.charIndex = 0;
-    this.isTyping = true;
-    this.indicatorGraphics.setVisible(false);
-    this.indicatorGraphics.alpha = 1;
-    this.textObj.setText('');
-
-    if (this.typeTimer) this.typeTimer.destroy();
-
-    this.typeTimer = this.scene.time.addEvent({
-      delay: GAME.TYPEWRITER_MS,
-      callback: () => this._typeNextChar(),
-      loop: true,
-    });
-  }
-
-  _typeNextChar() {
-    if (this.charIndex < this.currentText.length) {
-      const char = this.currentText[this.charIndex];
-      this.displayedText += char;
-      this.textObj.setText(this.displayedText);
-      this.charIndex++;
-
-      if (char !== ' ' && char !== '\n') {
-        audioManager.playTypewriter();
-      }
-    } else {
-      this._finishTyping();
-    }
-  }
-
-  _finishTyping() {
+    this.setVisible(false);
+    this.isVisible = false;
+    this.isAnimating = false;
     this.isTyping = false;
-    if (this.typeTimer) {
-      this.typeTimer.destroy();
-      this.typeTimer = null;
-    }
-    this.textObj.setText(this.currentText);
-    this.indicatorGraphics.setVisible(true);
-  }
-
-  // Called when player presses A/tap
-  advance() {
-    if (this.isTyping) {
-      // Skip to end of current page
-      this.skipToEnd();
-      return true; // consumed input
-    }
-
-    // Advance to next page
-    this.currentPage++;
-    if (this.currentPage < this.pages.length) {
-      this._showPage(this.pages[this.currentPage]);
-      return true; // consumed input
-    }
-
-    // All pages done
-    this.indicatorGraphics.setVisible(false);
-    if (this.onComplete) {
-      this.onComplete();
-    }
-    return false; // input not consumed, caller should proceed
-  }
-
-  skipToEnd() {
-    if (this.typeTimer) {
-      this.typeTimer.destroy();
-      this.typeTimer = null;
-    }
-    this.displayedText = this.currentText;
-    this.textObj.setText(this.currentText);
-    this._finishTyping();
-  }
-
-  isComplete() {
-    return !this.isTyping && this.currentPage >= this.pages.length - 1;
-  }
-
-  // Show choices in the dialogue box (replaces text with selectable options)
-  showChoices(items, onSelect) {
-    // items: [{text, id}, ...]
-    // onSelect: (selectedId) => {}
-    this.show();
-    this.isTyping = false;
-    this.indicatorGraphics.setVisible(false);
-    this.nameTag.setVisible(false);
-
-    // Clear existing text
-    this.textObj.setText('');
-
-    this.selectedChoice = 0;
-    this.choices = items;
-    this.onChoiceSelect = onSelect;
-
-    // Draw choices with cursor
-    this._renderChoices();
-  }
-
-  _renderChoices() {
-    if (this.choiceContainer) this.choiceContainer.destroy();
-
-    this.choiceContainer = this.scene.add.container(0, 0);
-    this.container.add(this.choiceContainer);
-
-    const startY = 5;
-    const lineH = 12;
-
-    this.choices.forEach((choice, i) => {
-      const y = startY + i * lineH;
-
-      // Cursor arrow for selected item
-      if (i === this.selectedChoice) {
-        const cursorG = this.scene.add.graphics();
-        drawCursor(cursorG, 4, y + 1);
-        this.choiceContainer.add(cursorG);
-      }
-
-      const text = this.scene.add.text(12, y, choice.text, {
-        fontFamily: GAME.FONT,
-        fontSize: GAME.FONT_SIZE + 'px',
-        color: hexToCSS(BATTLE.TEXT),
-      });
-      this.choiceContainer.add(text);
-    });
-  }
-
-  moveChoice(dir) {
-    if (!this.choices) return;
-    this.selectedChoice += dir;
-    if (this.selectedChoice < 0) this.selectedChoice = this.choices.length - 1;
-    if (this.selectedChoice >= this.choices.length) this.selectedChoice = 0;
-    audioManager.playSelect();
-    this._renderChoices();
-  }
-
-  confirmChoice() {
-    if (!this.choices || !this.onChoiceSelect) return;
-    const selected = this.choices[this.selectedChoice];
-    if (this.choiceContainer) {
-      this.choiceContainer.destroy();
-      this.choiceContainer = null;
-    }
-    this.onChoiceSelect(selected.id);
-  }
-
-  destroy() {
-    if (this.typeTimer) this.typeTimer.destroy();
-    if (this.choiceContainer) this.choiceContainer.destroy();
-    if (this.container) this.container.destroy();
+    this.clearChoices();
   }
 }

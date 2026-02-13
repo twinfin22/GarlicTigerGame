@@ -1,111 +1,98 @@
-// QuizScene - Pokemon Gold GBC-style battle quiz encounters
-// Native 160x144 resolution with authentic battle layout
+// QuizScene - Pokemon FireRed/LeafGreen GBA-style battle quiz encounters
+// 240x160 native resolution with Gen 3 battle layout and bilingual text
 
 import Phaser from 'phaser';
 import { GAME, SCENES } from '../config.js';
 import { audioManager } from '../utils/AudioManager.js';
-import { gameState } from '../utils/StateManager.js';
-import { inputHandler } from '../utils/InputHandler.js';
-import { BATTLE, getSpritePalette, hexToCSS } from '../data/palettes.js';
-import * as Sprites from '../data/spriteData.js';
-import {
-  drawSpriteLarge,
-  drawOverworldSprite,
-  drawDialogFrame,
-  drawHPBar,
-  drawCursor,
-  drawContinueIndicator,
-  createBattleTransition,
-} from '../utils/TileRenderer.js';
+import { StateManager } from '../utils/StateManager.js';
+import { InputHandler } from '../utils/InputHandler.js';
+import { DialogueBox } from '../objects/DialogueBox.js';
+import { ASSET_MANIFEST } from '../data/assetManifest.js';
+import { createBattleTransition } from '../utils/TileRenderer.js';
 import quizData from '../data/quizData.json';
 
-// Map NPC field names to battle sprite keys in spriteData.js
-const NPC_BATTLE_SPRITES = {
-  ajumma: 'NPC_AJUMMA_BATTLE',
-  worker: 'NPC_WORKER_BATTLE',
-  grandma: 'NPC_GRANDMA_BATTLE',
-  senior: 'NPC_SENIOR_BATTLE',
-  hipster: 'NPC_HIPSTER_BATTLE',
+// NPC key → asset texture key mapping
+const NPC_TEXTURE_MAP = {
+  npc_ajumma: 'npc_ajumma',
+  npc_grandma: 'npc_grandma',
+  npc_friends: 'npc_businessman',   // use businessman sprite for friend group
+  npc_friend: 'npc_student',        // use student sprite for friend
 };
 
-// Map NPC field names to sprite palette names
-const NPC_PALETTE_MAP = {
-  ajumma: 'BROWN',
-  worker: 'BLUE',
-  grandma: 'RED',
-  senior: 'BLUE',
-  hipster: 'GREEN',
-};
-
-// Battle layout constants (native 160x144)
+// Battle layout constants (240x160 GBA native)
 const LAYOUT = {
-  NPC_SPRITE_X: 104,
-  NPC_SPRITE_Y: 8,
-  NPC_SPRITE_W: 56,
-  NPC_SPRITE_H: 56,
-  TIGER_SPRITE_X: 8,
-  TIGER_SPRITE_Y: 48,
-  TIGER_SPRITE_W: 48,
-  TIGER_SPRITE_H: 48,
-  ENEMY_LABEL_X: 8,
-  ENEMY_LABEL_Y: 4,
-  ENEMY_HP_X: 8,
-  ENEMY_HP_Y: 12,
-  PLAYER_LABEL_X: 88,
+  NPC_X: 170,
+  NPC_Y: 16,
+  NPC_SIZE: 64,
+  TIGER_X: 30,
+  TIGER_Y: 56,
+  TIGER_SIZE: 64,
+  ENEMY_LABEL_X: 10,
+  ENEMY_LABEL_Y: 6,
+  PLAYER_LABEL_X: 130,
   PLAYER_LABEL_Y: 88,
-  PLAYER_HP_X: 88,
-  PLAYER_HP_Y: 96,
-  DIALOG_X: 0,
-  DIALOG_Y: 112,
-  DIALOG_W: 160,
-  DIALOG_H: 32,
-  TEXT_PAD_X: 8,
-  TEXT_PAD_Y: 5,
+  BATTLE_BG_COLOR: 0xF8F8F8,
+  TEXT_COLOR: '#000000',
+  TEXT_COLOR_EN: '#444444',
 };
 
-// Menu items for the 2x2 action menu
-const MENU_ITEMS = [
-  { label: 'ANSWER', col: 0, row: 0 },
-  { label: 'HELP', col: 1, row: 0 },
-  { label: 'RUN', col: 0, row: 1 },
-  { label: 'ITEM', col: 1, row: 1 },
-];
+// Elevator button mashing animation constants
+const ELEVATOR = {
+  BUTTON_X: 180,
+  BUTTON_Y: 48,
+  BUTTON_SIZE: 12,
+  MASH_INTERVAL: 120,
+};
 
 export class QuizScene extends Phaser.Scene {
   constructor() {
     super({ key: SCENES.QUIZ });
   }
 
+  init(data) {
+    this.quizId = data.quizId;
+    this.currentQuiz = quizData.quizzes.find(q => q.id === this.quizId);
+  }
+
   create() {
-    // --------------------------------------------------
-    // State initialization
-    // --------------------------------------------------
+    // State
     this.phase = 'transition';
-    // phases: transition -> dialogueSeq -> question -> menu -> choices -> result
     this.dialogueSeqIndex = 0;
-    this.selectedChoice = 0;
-    this.selectedMenuItem = 0;
-    this.fullText = '';
-    this.displayedText = '';
-    this.charIndex = 0;
-    this.isTyping = false;
-    this.typeTimer = null;
-    this.blinkTimer = null;
+    this.inputHandler = new InputHandler(this);
+    this.dialogueBox = null;
+    this.elevatorMashTimer = null;
+    this.elevatorPressCount = 0;
 
-    // Graphics references for cleanup
-    this.dialogBoxGraphics = null;
-    this.dialogueText = null;
-    this.continueIndicatorGraphics = null;
-    this.choiceTexts = [];
-    this.choiceCursorGraphics = [];
-    this.menuCursorGraphics = null;
-    this.menuTexts = [];
-    this.npcSpriteGraphics = null;
-    this.tigerSpriteGraphics = null;
+    // Flag-based action input (more reliable than JustDown polling)
+    this._actionFlag = false;
+    this._cancelFlag = false;
+    this._actionCooldown = 0;
+    const ACTION_COOLDOWN_MS = 150;
 
-    // Get quiz data
-    const quizIndex = gameState.getCurrentQuizIndex();
-    this.currentQuiz = quizData.quizzes[quizIndex];
+    this._onKeyDown = (event) => {
+      const key = event.key || event.code;
+      const now = Date.now();
+      if (key === ' ' || key === 'Space' || key === 'Enter' || key === 'z' || key === 'Z') {
+        if (now - this._actionCooldown > ACTION_COOLDOWN_MS) {
+          this._actionFlag = true;
+          this._actionCooldown = now;
+        }
+      }
+      if (key === 'x' || key === 'X' || key === 'Escape') {
+        this._cancelFlag = true;
+      }
+    };
+    this.input.keyboard.on('keydown', this._onKeyDown);
+
+    // Mobile touch action support
+    this._onPointerDown = () => {
+      const now = Date.now();
+      if (now - this._actionCooldown > ACTION_COOLDOWN_MS) {
+        this._actionFlag = true;
+        this._actionCooldown = now;
+      }
+    };
+    this.input.on('pointerdown', this._onPointerDown);
 
     if (!this.currentQuiz) {
       this.scene.start(SCENES.VICTORY);
@@ -113,269 +100,256 @@ export class QuizScene extends Phaser.Scene {
     }
 
     // White battle background
-    this.cameras.main.setBackgroundColor(BATTLE.BG);
+    this.cameras.main.setBackgroundColor(LAYOUT.BATTLE_BG_COLOR);
 
-    // Initialize input handler for this scene
-    inputHandler.init(this);
-    this._bindInput();
-
-    // Run battle transition, then reveal the battle layout
+    // Run battle transition, then reveal battle layout
     createBattleTransition(this, () => this._startBattle());
+
+    // Cleanup on shutdown
+    this.events.once('shutdown', () => {
+      if (this.inputHandler) this.inputHandler.destroy();
+      if (this.dialogueBox) this.dialogueBox.destroy();
+      if (this.elevatorMashTimer) this.elevatorMashTimer.destroy();
+      if (this._onKeyDown) this.input.keyboard.off('keydown', this._onKeyDown);
+      if (this._onPointerDown) this.input.off('pointerdown', this._onPointerDown);
+    });
   }
 
   // ====================================================
-  // INPUT BINDING
-  // ====================================================
-
-  _bindInput() {
-    inputHandler.on('action', () => this._handleAction());
-    inputHandler.on('move', (dir) => this._handleMove(dir));
-  }
-
-  // ====================================================
-  // PHASE 1: BATTLE ENTRY
+  // BATTLE ENTRY
   // ====================================================
 
   _startBattle() {
-    // Clear transition bars by redrawing clean background
-    this.cameras.main.setBackgroundColor(BATTLE.BG);
+    this.cameras.main.setBackgroundColor(LAYOUT.BATTLE_BG_COLOR);
 
-    // Draw NPC name label + HP bar (top-left area)
+    const isElevator = this.currentQuiz.id === 2;
+
+    if (isElevator) {
+      this._setupElevatorBattle();
+    } else {
+      this._setupNPCBattle();
+    }
+
+    // Draw enemy HUD
     this._drawEnemyHUD();
 
-    // Draw Player name label + HP bar (bottom-right area)
+    // Draw player HUD
     this._drawPlayerHUD();
 
-    // Slide NPC in from right
-    this._slideNPCIn();
-
-    // Slide Tiger in from left
-    this._slideTigerIn();
-
-    // After slide-in animations complete, start dialogue
-    this.time.delayedCall(600, () => {
-      this._drawDialogBox();
+    // Create dialogue box after a short delay
+    this.time.delayedCall(500, () => {
+      this.dialogueBox = new DialogueBox(this);
       this._startDialogueSequence();
     });
   }
 
+  _setupElevatorBattle() {
+    // Show elevator background image
+    const elevatorKey = ASSET_MANIFEST.korean.elevator_bg.key;
+    if (this.textures.exists(elevatorKey)) {
+      const bg = this.add.image(GAME.WIDTH / 2, GAME.HEIGHT / 2 - 20, elevatorKey);
+      bg.setDisplaySize(GAME.WIDTH, GAME.HEIGHT - 48);
+      bg.setOrigin(0.5);
+    } else {
+      // Fallback: draw elevator interior
+      const g = this.add.graphics();
+      g.fillStyle(0xC0C0C0);
+      g.fillRect(40, 8, 160, 90);
+      g.fillStyle(0x808080);
+      g.fillRect(100, 12, 4, 82);
+      // Door panel lines
+      g.lineStyle(1, 0x606060);
+      g.lineBetween(100, 12, 100, 94);
+      g.lineBetween(104, 12, 104, 94);
+    }
+
+    // Elevator close door button with mashing animation
+    this._drawElevatorButton();
+
+    // Tiger sprite bottom-left
+    this._drawTigerSprite();
+  }
+
+  _drawElevatorButton() {
+    // Button panel
+    const g = this.add.graphics();
+    g.fillStyle(0x505050);
+    g.fillRect(ELEVATOR.BUTTON_X - 2, ELEVATOR.BUTTON_Y - 2, ELEVATOR.BUTTON_SIZE + 4, ELEVATOR.BUTTON_SIZE + 4);
+
+    // Button face
+    this.elevatorButton = this.add.graphics();
+    this._drawButtonNormal();
+
+    // "><" close door icon on button
+    this.buttonIcon = this.add.text(
+      ELEVATOR.BUTTON_X + ELEVATOR.BUTTON_SIZE / 2,
+      ELEVATOR.BUTTON_Y + ELEVATOR.BUTTON_SIZE / 2,
+      '><',
+      {
+        fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
+        fontSize: '6px',
+        color: '#FFFFFF',
+      }
+    ).setOrigin(0.5);
+
+    // Mashing counter text
+    this.mashText = this.add.text(
+      ELEVATOR.BUTTON_X + ELEVATOR.BUTTON_SIZE / 2,
+      ELEVATOR.BUTTON_Y + ELEVATOR.BUTTON_SIZE + 8,
+      '',
+      {
+        fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
+        fontSize: '6px',
+        color: LAYOUT.TEXT_COLOR,
+      }
+    ).setOrigin(0.5);
+
+    // Auto-mash animation for visual flair
+    this.elevatorMashTimer = this.time.addEvent({
+      delay: ELEVATOR.MASH_INTERVAL,
+      callback: () => {
+        if (this.phase !== 'dialogueSeq' && this.phase !== 'question') return;
+        this.elevatorPressCount++;
+        this.mashText.setText(`x${this.elevatorPressCount}`);
+
+        // Flash button pressed
+        this.elevatorButton.clear();
+        this.elevatorButton.fillStyle(0xFF4444);
+        this.elevatorButton.fillRect(ELEVATOR.BUTTON_X, ELEVATOR.BUTTON_Y, ELEVATOR.BUTTON_SIZE, ELEVATOR.BUTTON_SIZE);
+
+        this.time.delayedCall(60, () => this._drawButtonNormal());
+      },
+      loop: true,
+    });
+  }
+
+  _drawButtonNormal() {
+    if (!this.elevatorButton) return;
+    this.elevatorButton.clear();
+    this.elevatorButton.fillStyle(0x808080);
+    this.elevatorButton.fillRect(ELEVATOR.BUTTON_X, ELEVATOR.BUTTON_Y, ELEVATOR.BUTTON_SIZE, ELEVATOR.BUTTON_SIZE);
+  }
+
+  _setupNPCBattle() {
+    // NPC sprite top-right
+    this._drawNPCSprite();
+
+    // Tiger sprite bottom-left
+    this._drawTigerSprite();
+  }
+
+  _drawNPCSprite() {
+    const npcKey = this.currentQuiz.npcKey;
+    const textureKey = NPC_TEXTURE_MAP[npcKey] || npcKey;
+
+    if (textureKey && this.textures.exists(textureKey)) {
+      const npc = this.add.image(LAYOUT.NPC_X + LAYOUT.NPC_SIZE / 2, LAYOUT.NPC_Y + LAYOUT.NPC_SIZE / 2, textureKey);
+      npc.setDisplaySize(LAYOUT.NPC_SIZE, LAYOUT.NPC_SIZE);
+
+      // Slide in from right
+      npc.x = GAME.WIDTH + 40;
+      this.tweens.add({
+        targets: npc,
+        x: LAYOUT.NPC_X + LAYOUT.NPC_SIZE / 2,
+        duration: 400,
+        ease: 'Cubic.easeOut',
+      });
+    } else {
+      // Fallback: colored rectangle placeholder
+      const g = this.add.graphics();
+      g.fillStyle(0x888888);
+      g.fillRect(0, 0, LAYOUT.NPC_SIZE, LAYOUT.NPC_SIZE);
+      g.fillStyle(0x606060);
+      g.fillRect(16, 4, 32, 32);
+      g.setPosition(GAME.WIDTH + 40, LAYOUT.NPC_Y);
+
+      this.tweens.add({
+        targets: g,
+        x: LAYOUT.NPC_X,
+        duration: 400,
+        ease: 'Cubic.easeOut',
+      });
+    }
+  }
+
+  _drawTigerSprite() {
+    const stage = StateManager.getStage();
+    const frameKey = `flexible_neck_${Math.min(stage, 11)}`;
+
+    if (this.textures.exists('tiger')) {
+      const tiger = this.add.sprite(LAYOUT.TIGER_X + LAYOUT.TIGER_SIZE / 2, LAYOUT.TIGER_Y + LAYOUT.TIGER_SIZE / 2, 'tiger', 0);
+      tiger.setDisplaySize(LAYOUT.TIGER_SIZE, LAYOUT.TIGER_SIZE);
+
+      // Slide in from left
+      tiger.x = -40;
+      this.tweens.add({
+        targets: tiger,
+        x: LAYOUT.TIGER_X + LAYOUT.TIGER_SIZE / 2,
+        duration: 400,
+        ease: 'Cubic.easeOut',
+      });
+    } else {
+      // Fallback placeholder
+      const g = this.add.graphics();
+      g.fillStyle(0xF89838);
+      g.fillRect(0, 0, LAYOUT.TIGER_SIZE, LAYOUT.TIGER_SIZE);
+      g.fillStyle(0x383838);
+      g.fillRect(8, 12, LAYOUT.TIGER_SIZE - 16, 2);
+      g.fillRect(8, 24, LAYOUT.TIGER_SIZE - 16, 2);
+      g.setPosition(-40, LAYOUT.TIGER_Y);
+
+      this.tweens.add({
+        targets: g,
+        x: LAYOUT.TIGER_X,
+        duration: 400,
+        ease: 'Cubic.easeOut',
+      });
+    }
+  }
+
   _drawEnemyHUD() {
-    const name = this.currentQuiz.npcName;
-    // Truncate to fit if needed (max ~12 chars at 8px font on 160px screen)
-    const displayName = name.length > 12 ? name.substring(0, 11) + '.' : name;
+    const nameKo = this.currentQuiz.npcName.ko;
+    const nameEn = this.currentQuiz.npcName.en;
+    const displayName = nameEn.length > 16 ? nameEn.substring(0, 15) + '.' : nameEn;
 
-    // Name label
-    this.add.text(LAYOUT.ENEMY_LABEL_X, LAYOUT.ENEMY_LABEL_Y, displayName, {
-      fontFamily: GAME.FONT,
+    // Background panel
+    const bg = this.add.graphics();
+    bg.fillStyle(0xF8F8D8);
+    bg.fillRect(LAYOUT.ENEMY_LABEL_X, LAYOUT.ENEMY_LABEL_Y, 110, 22);
+    bg.lineStyle(1, 0x000000);
+    bg.strokeRect(LAYOUT.ENEMY_LABEL_X, LAYOUT.ENEMY_LABEL_Y, 110, 22);
+
+    // Name (Korean)
+    this.add.text(LAYOUT.ENEMY_LABEL_X + 4, LAYOUT.ENEMY_LABEL_Y + 2, nameKo, {
+      fontFamily: `'${GAME.FONT_KO}', sans-serif`,
       fontSize: '8px',
-      color: hexToCSS(BATTLE.TEXT),
+      color: LAYOUT.TEXT_COLOR,
     });
 
-    // Level indicator
-    this.add.text(LAYOUT.ENEMY_LABEL_X + 60, LAYOUT.ENEMY_LABEL_Y, 'Lv5', {
-      fontFamily: GAME.FONT,
-      fontSize: '8px',
-      color: hexToCSS(BATTLE.TEXT),
+    // Name (English)
+    this.add.text(LAYOUT.ENEMY_LABEL_X + 4, LAYOUT.ENEMY_LABEL_Y + 12, displayName, {
+      fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
+      fontSize: '6px',
+      color: LAYOUT.TEXT_COLOR_EN,
     });
-
-    // HP bar for enemy (starts full, cosmetic)
-    this.enemyHPGraphics = this.add.graphics();
-    drawHPBar(this.enemyHPGraphics, LAYOUT.ENEMY_HP_X, LAYOUT.ENEMY_HP_Y + 8, 100, 100);
   }
 
   _drawPlayerHUD() {
-    // Tiger name + level
-    this.add.text(LAYOUT.PLAYER_LABEL_X, LAYOUT.PLAYER_LABEL_Y, 'TIGER', {
-      fontFamily: GAME.FONT,
-      fontSize: '8px',
-      color: hexToCSS(BATTLE.TEXT),
+    const bg = this.add.graphics();
+    bg.fillStyle(0xF8F8D8);
+    bg.fillRect(LAYOUT.PLAYER_LABEL_X, LAYOUT.PLAYER_LABEL_Y, 100, 16);
+    bg.lineStyle(1, 0x000000);
+    bg.strokeRect(LAYOUT.PLAYER_LABEL_X, LAYOUT.PLAYER_LABEL_Y, 100, 16);
+
+    this.add.text(LAYOUT.PLAYER_LABEL_X + 4, LAYOUT.PLAYER_LABEL_Y + 3, 'TIGER  Lv5', {
+      fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
+      fontSize: '7px',
+      color: LAYOUT.TEXT_COLOR,
     });
-
-    this.add.text(LAYOUT.PLAYER_LABEL_X + 48, LAYOUT.PLAYER_LABEL_Y, 'Lv5', {
-      fontFamily: GAME.FONT,
-      fontSize: '8px',
-      color: hexToCSS(BATTLE.TEXT),
-    });
-
-    // HP bar for player (always full)
-    this.playerHPGraphics = this.add.graphics();
-    drawHPBar(this.playerHPGraphics, LAYOUT.PLAYER_HP_X, LAYOUT.PLAYER_HP_Y + 8, 100, 100);
-  }
-
-  _slideNPCIn() {
-    const npcKey = NPC_BATTLE_SPRITES[this.currentQuiz.npc];
-    const paletteKey = NPC_PALETTE_MAP[this.currentQuiz.npc] || 'GRAY';
-    const palette = getSpritePalette(paletteKey);
-
-    this.npcSpriteGraphics = this.add.graphics();
-
-    // Draw the NPC battle sprite
-    const spriteData = npcKey ? Sprites[npcKey] : null;
-    if (spriteData) {
-      drawSpriteLarge(
-        this.npcSpriteGraphics, 0, 0,
-        spriteData,
-        LAYOUT.NPC_SPRITE_W, LAYOUT.NPC_SPRITE_H,
-        palette
-      );
-    } else {
-      // Fallback: draw a simple placeholder silhouette
-      this._drawPlaceholderNPC(this.npcSpriteGraphics, palette);
-    }
-
-    // Start off-screen right, slide in
-    this.npcSpriteGraphics.setPosition(200, LAYOUT.NPC_SPRITE_Y);
-
-    this.tweens.add({
-      targets: this.npcSpriteGraphics,
-      x: LAYOUT.NPC_SPRITE_X,
-      duration: 400,
-      ease: 'Cubic.easeOut',
-    });
-  }
-
-  _slideTigerIn() {
-    const stage = gameState.getTransformationStage();
-    const basePalette = getSpritePalette('TIGER');
-    const colors = [...basePalette.colors];
-
-    // Apply transformation stage palette modifications
-    if (stage >= 1) colors[2] = 0xF8F8F8;
-    if (stage >= 4) colors[1] = 0x383838;
-    const palette = { colors };
-
-    this.tigerSpriteGraphics = this.add.graphics();
-
-    // Use TIGER_BATTLE_BACK if available, fall back to TIGER_BACK
-    const spriteData = Sprites.TIGER_BATTLE_BACK || Sprites.TIGER_BACK;
-    if (spriteData) {
-      drawSpriteLarge(
-        this.tigerSpriteGraphics, 0, 0,
-        spriteData,
-        LAYOUT.TIGER_SPRITE_W, LAYOUT.TIGER_SPRITE_H,
-        palette
-      );
-    } else {
-      // Fallback placeholder
-      this._drawPlaceholderTiger(this.tigerSpriteGraphics, palette);
-    }
-
-    // Start off-screen left, slide in
-    this.tigerSpriteGraphics.setPosition(-48, LAYOUT.TIGER_SPRITE_Y);
-
-    this.tweens.add({
-      targets: this.tigerSpriteGraphics,
-      x: LAYOUT.TIGER_SPRITE_X,
-      duration: 400,
-      ease: 'Cubic.easeOut',
-    });
-  }
-
-  /**
-   * Draw a placeholder NPC silhouette when battle sprite data is not available.
-   */
-  _drawPlaceholderNPC(graphics, palette) {
-    const w = LAYOUT.NPC_SPRITE_W;
-    const h = LAYOUT.NPC_SPRITE_H;
-    const c = palette.colors;
-
-    // Body outline
-    graphics.fillStyle(c[3] || 0x383838);
-    graphics.fillRect(12, 4, 32, 52);
-
-    // Body fill
-    graphics.fillStyle(c[1] || 0xB8B8B8);
-    graphics.fillRect(14, 6, 28, 48);
-
-    // Head
-    graphics.fillStyle(c[2] || 0x686868);
-    graphics.fillRect(18, 0, 20, 20);
-
-    // Eyes
-    graphics.fillStyle(c[3] || 0x383838);
-    graphics.fillRect(22, 8, 4, 4);
-    graphics.fillRect(30, 8, 4, 4);
-  }
-
-  /**
-   * Draw a placeholder tiger back silhouette when battle sprite data is not available.
-   */
-  _drawPlaceholderTiger(graphics, palette) {
-    const c = palette.colors;
-
-    // Body
-    graphics.fillStyle(c[1] || 0xF89838);
-    graphics.fillRect(8, 8, 32, 40);
-
-    // Head (top)
-    graphics.fillStyle(c[1] || 0xF89838);
-    graphics.fillRect(12, 0, 24, 16);
-
-    // Ears
-    graphics.fillStyle(c[1] || 0xF89838);
-    graphics.fillRect(12, 0, 6, 6);
-    graphics.fillRect(30, 0, 6, 6);
-
-    // Stripes
-    graphics.fillStyle(c[2] || 0x383838);
-    graphics.fillRect(14, 14, 20, 2);
-    graphics.fillRect(14, 22, 20, 2);
-    graphics.fillRect(14, 30, 20, 2);
   }
 
   // ====================================================
-  // DIALOG BOX
-  // ====================================================
-
-  _drawDialogBox() {
-    if (this.dialogBoxGraphics) this.dialogBoxGraphics.destroy();
-    this.dialogBoxGraphics = this.add.graphics();
-    drawDialogFrame(
-      this.dialogBoxGraphics,
-      LAYOUT.DIALOG_X, LAYOUT.DIALOG_Y,
-      LAYOUT.DIALOG_W, LAYOUT.DIALOG_H
-    );
-  }
-
-  _clearDialogContent() {
-    if (this.dialogueText) {
-      this.dialogueText.destroy();
-      this.dialogueText = null;
-    }
-    if (this.continueIndicatorGraphics) {
-      this.continueIndicatorGraphics.destroy();
-      this.continueIndicatorGraphics = null;
-    }
-    if (this.blinkTimer) {
-      this.blinkTimer.destroy();
-      this.blinkTimer = null;
-    }
-    if (this.typeTimer) {
-      this.typeTimer.destroy();
-      this.typeTimer = null;
-    }
-    this._clearMenuItems();
-    this._clearChoiceItems();
-  }
-
-  _clearMenuItems() {
-    if (this.menuCursorGraphics) {
-      this.menuCursorGraphics.destroy();
-      this.menuCursorGraphics = null;
-    }
-    this.menuTexts.forEach((t) => t.destroy());
-    this.menuTexts = [];
-  }
-
-  _clearChoiceItems() {
-    this.choiceCursorGraphics.forEach((g) => g.destroy());
-    this.choiceCursorGraphics = [];
-    this.choiceTexts.forEach((t) => t.destroy());
-    this.choiceTexts = [];
-  }
-
-  // ====================================================
-  // PHASE 2: DIALOGUE SEQUENCE
+  // DIALOGUE SEQUENCE
   // ====================================================
 
   _startDialogueSequence() {
@@ -383,228 +357,35 @@ export class QuizScene extends Phaser.Scene {
     if (seq && seq.length > 0) {
       this.phase = 'dialogueSeq';
       this.dialogueSeqIndex = 0;
-      this._showTypewriterText(seq[0]);
+      this.dialogueBox.showText(seq[0].ko, seq[0].en);
     } else {
-      // No sequence, go straight to question
       this._showQuestion();
     }
   }
 
   _showQuestion() {
     this.phase = 'question';
-    this._showTypewriterText(this.currentQuiz.dialogue);
-  }
-
-  /**
-   * Display text in the dialog box with typewriter effect.
-   * Text wraps within the dialog box area (2 lines max at 8px font).
-   */
-  _showTypewriterText(text) {
-    this._clearDialogContent();
-    this._drawDialogBox();
-
-    this.fullText = text;
-    this.displayedText = '';
-    this.charIndex = 0;
-    this.isTyping = true;
-
-    // Calculate available text width inside the double-border dialog frame
-    const textWidth = LAYOUT.DIALOG_W - (LAYOUT.TEXT_PAD_X * 2) - 4; // account for border
-
-    this.dialogueText = this.add.text(
-      LAYOUT.DIALOG_X + LAYOUT.TEXT_PAD_X,
-      LAYOUT.DIALOG_Y + LAYOUT.TEXT_PAD_Y,
-      '',
-      {
-        fontFamily: GAME.FONT,
-        fontSize: '8px',
-        color: hexToCSS(BATTLE.TEXT),
-        wordWrap: { width: textWidth },
-        lineSpacing: 2,
-      }
+    this.dialogueBox.showText(
+      this.currentQuiz.question.ko,
+      this.currentQuiz.question.en
     );
-
-    // Typewriter timer
-    this.typeTimer = this.time.addEvent({
-      delay: GAME.TYPEWRITER_MS,
-      callback: () => {
-        if (this.charIndex < this.fullText.length) {
-          this.displayedText += this.fullText[this.charIndex];
-          this.dialogueText.setText(this.displayedText);
-          this.charIndex++;
-          // Play typewriter sound for non-space characters
-          if (this.fullText[this.charIndex - 1] !== ' ') {
-            audioManager.playTypewriter();
-          }
-        } else {
-          this._finishTyping();
-        }
-      },
-      repeat: text.length - 1,
-    });
   }
-
-  _finishTyping() {
-    this.isTyping = false;
-    if (this.typeTimer) {
-      this.typeTimer.destroy();
-      this.typeTimer = null;
-    }
-    if (this.dialogueText) {
-      this.dialogueText.setText(this.fullText);
-    }
-
-    // Show blinking down-arrow continue indicator at bottom-right of dialog box
-    this.continueIndicatorGraphics = this.add.graphics();
-    drawContinueIndicator(
-      this.continueIndicatorGraphics,
-      LAYOUT.DIALOG_X + LAYOUT.DIALOG_W - 14,
-      LAYOUT.DIALOG_Y + LAYOUT.DIALOG_H - 10
-    );
-
-    this.blinkTimer = this.time.addEvent({
-      delay: 400,
-      callback: () => {
-        if (this.continueIndicatorGraphics) {
-          this.continueIndicatorGraphics.visible = !this.continueIndicatorGraphics.visible;
-        }
-      },
-      loop: true,
-    });
-  }
-
-  _skipTypewriter() {
-    if (this.typeTimer) {
-      this.typeTimer.destroy();
-      this.typeTimer = null;
-    }
-    this.displayedText = this.fullText;
-    if (this.dialogueText) {
-      this.dialogueText.setText(this.fullText);
-    }
-    this._finishTyping();
-  }
-
-  // ====================================================
-  // PHASE 3: ACTION MENU (2x2 grid)
-  // ====================================================
-
-  _showActionMenu() {
-    this.phase = 'menu';
-    this.selectedMenuItem = 0;
-    this._clearDialogContent();
-    this._drawDialogBox();
-
-    // "What will TIGER do?" prompt text
-    this.dialogueText = this.add.text(
-      LAYOUT.DIALOG_X + LAYOUT.TEXT_PAD_X,
-      LAYOUT.DIALOG_Y + LAYOUT.TEXT_PAD_Y,
-      'What will TIGER do?',
-      {
-        fontFamily: GAME.FONT,
-        fontSize: '8px',
-        color: hexToCSS(BATTLE.TEXT),
-      }
-    );
-
-    // 2x2 menu grid
-    const menuBaseX = LAYOUT.DIALOG_X + LAYOUT.TEXT_PAD_X + 8;
-    const menuBaseY = LAYOUT.DIALOG_Y + LAYOUT.TEXT_PAD_Y + 12;
-    const colSpacing = 72; // horizontal distance between columns
-    const rowSpacing = 10; // vertical distance between rows
-
-    this.menuTexts = [];
-    MENU_ITEMS.forEach((item) => {
-      const tx = menuBaseX + item.col * colSpacing;
-      const ty = menuBaseY + item.row * rowSpacing;
-      const text = this.add.text(tx, ty, item.label, {
-        fontFamily: GAME.FONT,
-        fontSize: '8px',
-        color: hexToCSS(BATTLE.TEXT),
-      });
-      this.menuTexts.push(text);
-    });
-
-    // Cursor
-    this.menuCursorGraphics = this.add.graphics();
-    this._updateMenuCursor();
-  }
-
-  _updateMenuCursor() {
-    if (!this.menuCursorGraphics) return;
-    this.menuCursorGraphics.clear();
-
-    const item = MENU_ITEMS[this.selectedMenuItem];
-    const menuBaseX = LAYOUT.DIALOG_X + LAYOUT.TEXT_PAD_X + 8;
-    const menuBaseY = LAYOUT.DIALOG_Y + LAYOUT.TEXT_PAD_Y + 12;
-    const colSpacing = 72;
-    const rowSpacing = 10;
-
-    const cx = menuBaseX + item.col * colSpacing - 6;
-    const cy = menuBaseY + item.row * rowSpacing + 1;
-    drawCursor(this.menuCursorGraphics, cx, cy);
-  }
-
-  // ====================================================
-  // PHASE 4: CHOICE SELECTION
-  // ====================================================
 
   _showChoices() {
     this.phase = 'choices';
-    this.selectedChoice = 0;
-    this._clearDialogContent();
-    this._drawDialogBox();
-
-    const choices = this.currentQuiz.choices;
-    const labels = ['A', 'B', 'C'];
-    const startX = LAYOUT.DIALOG_X + LAYOUT.TEXT_PAD_X + 6;
-    const startY = LAYOUT.DIALOG_Y + LAYOUT.TEXT_PAD_Y;
-    const lineHeight = 9;
-
-    this.choiceTexts = [];
-    this.choiceCursorGraphics = [];
-
-    choices.forEach((choice, i) => {
-      const y = startY + i * lineHeight;
-
-      // Cursor graphic (right-pointing triangle)
-      const cursorG = this.add.graphics();
-      drawCursor(cursorG, startX - 6, y + 1);
-      cursorG.visible = (i === 0);
-      this.choiceCursorGraphics.push(cursorG);
-
-      // Choice label: "A) text"
-      const label = labels[i] || choice.id;
-      // Truncate long choice text to fit within dialog box
-      let choiceText = choice.text;
-      if (choiceText.length > GAME.DIALOG_CHARS_PER_LINE) {
-        choiceText = choiceText.substring(0, GAME.DIALOG_CHARS_PER_LINE - 1) + '\u2026';
-      }
-      const text = this.add.text(startX, y, `${label})${choiceText}`, {
-        fontFamily: GAME.FONT,
-        fontSize: '8px',
-        color: hexToCSS(BATTLE.TEXT),
-      });
-      this.choiceTexts.push(text);
-    });
-  }
-
-  _updateChoiceCursor() {
-    this.choiceCursorGraphics.forEach((g, i) => {
-      g.visible = (i === this.selectedChoice);
-    });
+    this.dialogueBox.showChoices(this.currentQuiz.choices);
   }
 
   // ====================================================
-  // PHASE 5: RESULT
+  // RESULT HANDLING
   // ====================================================
 
   _handleCorrect() {
     this.phase = 'result';
     audioManager.playCorrect();
 
-    // Green tinted flash
-    const flash = this.add.rectangle(80, 72, 160, 144, BATTLE.HP_GREEN, 0.4);
+    // Green flash
+    const flash = this.add.rectangle(GAME.WIDTH / 2, GAME.HEIGHT / 2, GAME.WIDTH, GAME.HEIGHT, 0x58A058, 0.4);
     flash.setDepth(50);
     this.tweens.add({
       targets: flash,
@@ -613,49 +394,33 @@ export class QuizScene extends Phaser.Scene {
       onComplete: () => flash.destroy(),
     });
 
-    // Deplete enemy HP bar
-    if (this.enemyHPGraphics) {
-      this.enemyHPGraphics.clear();
-      drawHPBar(this.enemyHPGraphics, LAYOUT.ENEMY_HP_X, LAYOUT.ENEMY_HP_Y + 8, 0, 100);
-    }
-
-    // Show "CORRECT!" in dialog box
-    this._clearDialogContent();
-    this._drawDialogBox();
-    this.dialogueText = this.add.text(
-      LAYOUT.DIALOG_X + LAYOUT.TEXT_PAD_X,
-      LAYOUT.DIALOG_Y + LAYOUT.TEXT_PAD_Y + 4,
-      'CORRECT!',
-      {
-        fontFamily: GAME.FONT,
-        fontSize: '8px',
-        color: hexToCSS(BATTLE.TEXT),
-      }
+    // Show correct feedback in dialogue box
+    this.dialogueBox.showText(
+      this.currentQuiz.correctFeedback.ko,
+      this.currentQuiz.correctFeedback.en
     );
 
     audioManager.playGarlicCollect();
 
-    this.time.delayedCall(1200, () => {
-      // Mark the NPC as defeated so they can't be re-battled
-      if (this.currentQuiz.npc) {
-        gameState.defeatNPC(this.currentQuiz.npc);
-      }
-      gameState.addGarlic();
+    // Complete quiz in state
+    StateManager.completeQuiz(this.quizId);
+
+    this.time.delayedCall(2000, () => {
       this.scene.start(SCENES.TRANSFORM, {
+        quizId: this.quizId,
         transformation: this.currentQuiz.transformation,
       });
     });
   }
 
   _handleWrong() {
-    this.phase = 'result';
+    this.phase = 'wrongFeedback';
     audioManager.playWrong();
+    StateManager.recordWrongAnswer(this.quizId);
 
-    // Screen shake
+    // Screen shake + red flash
     this.cameras.main.shake(300, 0.02);
-
-    // Red flash
-    const flash = this.add.rectangle(80, 72, 160, 144, BATTLE.HP_RED, 0.5);
+    const flash = this.add.rectangle(GAME.WIDTH / 2, GAME.HEIGHT / 2, GAME.WIDTH, GAME.HEIGHT, 0xF85858, 0.5);
     flash.setDepth(50);
     this.tweens.add({
       targets: flash,
@@ -666,193 +431,143 @@ export class QuizScene extends Phaser.Scene {
       onComplete: () => flash.destroy(),
     });
 
-    // Show "WRONG!" in dialog box
-    this._clearDialogContent();
-    this._drawDialogBox();
-    this.dialogueText = this.add.text(
-      LAYOUT.DIALOG_X + LAYOUT.TEXT_PAD_X,
-      LAYOUT.DIALOG_Y + LAYOUT.TEXT_PAD_Y + 4,
-      'WRONG!',
-      {
-        fontFamily: GAME.FONT,
-        fontSize: '8px',
-        color: hexToCSS(BATTLE.TEXT),
-      }
+    // Show wrong feedback
+    this.dialogueBox.showText(
+      this.currentQuiz.wrongFeedback.ko,
+      this.currentQuiz.wrongFeedback.en
     );
 
-    this.time.delayedCall(1500, () => {
-      this.scene.start(SCENES.GAME_OVER, {
-        wrongFeedback: this.currentQuiz.wrongFeedback,
-      });
+    // After player reads feedback, show retry prompt
+    this.time.delayedCall(2500, () => {
+      this.phase = 'retryPrompt';
+      this.dialogueBox.showText(
+        '\ub2e4\uc2dc \ub3c4\uc804\ud558\uc2dc\uaca0\uc2b5\ub2c8\uae4c?',
+        'Try again?'
+      );
+      this.dialogueBox.showChoices([
+        { id: 'retry', ko: '\ub2e4\uc2dc \ub3c4\uc804!', en: 'Try again!' },
+        { id: 'leave', ko: '\ub3cc\uc544\uac00\uae30', en: 'Leave' },
+      ]);
     });
   }
 
   // ====================================================
-  // INPUT HANDLING
+  // UPDATE LOOP
   // ====================================================
 
-  _handleAction() {
-    audioManager.resume();
+  update() {
+    if (!this.inputHandler || !this.dialogueBox) return;
 
+    // Advance typewriter
+    if (this.dialogueBox.isAnimating) {
+      this.dialogueBox.updateTypewriter();
+    }
+
+    // Handle action button via flag (avoids JustDown unreliability)
+    if (this._actionFlag) {
+      this._actionFlag = false;
+      audioManager.resume();
+      this._handleAction();
+    }
+
+    // Handle direction input for choices (with cooldown to prevent skipping)
+    if (this.dialogueBox.isChoice) {
+      const dir = this.inputHandler.getDirection();
+      const now = Date.now();
+      if ((dir === 'up' || dir === 'down') && now - (this._dirCooldown || 0) > 200) {
+        this._dirCooldown = now;
+        audioManager.playSelect();
+        this.dialogueBox.moveCursor(dir);
+      }
+    }
+
+    // Handle cancel button (return to overworld during retry)
+    if (this._cancelFlag && this.phase === 'retryPrompt') {
+      this._cancelFlag = false;
+      audioManager.playSelect();
+      this.scene.start(SCENES.OVERWORLD);
+    } else {
+      this._cancelFlag = false;
+    }
+  }
+
+  _handleAction() {
     switch (this.phase) {
       case 'transition':
-        // Ignore input during transition
         break;
 
       case 'dialogueSeq':
-        if (this.isTyping) {
-          this._skipTypewriter();
+        if (this.dialogueBox.isAnimating) {
+          // Skip animation — show full text immediately, then advance on next press
+          this.dialogueBox.skipAnimation();
         } else {
-          // Advance to next dialogue in sequence
+          // Text fully shown — advance to next dialogue entry
           audioManager.playConfirm();
           this.dialogueSeqIndex++;
           const seq = this.currentQuiz.dialogueSequence;
           if (this.dialogueSeqIndex < seq.length) {
-            this._showTypewriterText(seq[this.dialogueSeqIndex]);
+            this.dialogueBox.showText(
+              seq[this.dialogueSeqIndex].ko,
+              seq[this.dialogueSeqIndex].en
+            );
           } else {
-            // Sequence complete, show the question
             this._showQuestion();
           }
         }
         break;
 
       case 'question':
-        if (this.isTyping) {
-          this._skipTypewriter();
+        if (this.dialogueBox.isAnimating) {
+          this.dialogueBox.skipAnimation();
         } else {
-          // Question fully displayed, show action menu
           audioManager.playConfirm();
-          this._showActionMenu();
+          this._showChoices();
         }
         break;
 
-      case 'menu':
-        this._selectMenuItem();
+      case 'choices':
+        if (this.dialogueBox.isChoice) {
+          audioManager.playConfirm();
+          const selectedIdx = this.dialogueBox.getSelectedChoice();
+          const choiceId = this.currentQuiz.choices[selectedIdx].id;
+          const isCorrect = choiceId === this.currentQuiz.correct;
+
+          if (isCorrect) {
+            this._handleCorrect();
+          } else {
+            this._handleWrong();
+          }
+        }
         break;
 
-      case 'choices':
-        this._confirmChoice();
+      case 'wrongFeedback':
+        if (this.dialogueBox.isAnimating) {
+          this.dialogueBox.skipAnimation();
+        }
+        break;
+
+      case 'retryPrompt':
+        if (this.dialogueBox.isChoice) {
+          audioManager.playConfirm();
+          const retryIdx = this.dialogueBox.getSelectedChoice();
+          const retryChoices = ['retry', 'leave'];
+          if (retryChoices[retryIdx] === 'retry') {
+            // Restart quiz
+            this.dialogueBox.hide();
+            this.phase = 'dialogueSeq';
+            this.dialogueSeqIndex = 0;
+            this._startDialogueSequence();
+          } else {
+            this.scene.start(SCENES.OVERWORLD);
+          }
+        }
         break;
 
       case 'result':
-        // Ignore input during result display
         break;
 
       default:
         break;
     }
-  }
-
-  _handleMove(direction) {
-    if (this.phase === 'menu') {
-      this._navigateMenu(direction);
-    } else if (this.phase === 'choices') {
-      this._navigateChoices(direction);
-    }
-  }
-
-  // ====================================================
-  // MENU NAVIGATION
-  // ====================================================
-
-  _navigateMenu(direction) {
-    const current = MENU_ITEMS[this.selectedMenuItem];
-    let newCol = current.col;
-    let newRow = current.row;
-
-    switch (direction) {
-      case 'up':    newRow = Math.max(0, newRow - 1); break;
-      case 'down':  newRow = Math.min(1, newRow + 1); break;
-      case 'left':  newCol = Math.max(0, newCol - 1); break;
-      case 'right': newCol = Math.min(1, newCol + 1); break;
-    }
-
-    const newIndex = MENU_ITEMS.findIndex((m) => m.col === newCol && m.row === newRow);
-    if (newIndex >= 0 && newIndex !== this.selectedMenuItem) {
-      audioManager.playMenuSelect();
-      this.selectedMenuItem = newIndex;
-      this._updateMenuCursor();
-    }
-  }
-
-  _selectMenuItem() {
-    const item = MENU_ITEMS[this.selectedMenuItem];
-
-    if (item.label === 'ANSWER') {
-      audioManager.playConfirm();
-      this._showChoices();
-    } else {
-      // Other menu items show a "Can't do that!" message
-      audioManager.playWrong();
-      this._showCantDoThat();
-    }
-  }
-
-  _showCantDoThat() {
-    const prevPhase = this.phase;
-    this.phase = 'cantdo';
-
-    this._clearDialogContent();
-    this._drawDialogBox();
-
-    this.dialogueText = this.add.text(
-      LAYOUT.DIALOG_X + LAYOUT.TEXT_PAD_X,
-      LAYOUT.DIALOG_Y + LAYOUT.TEXT_PAD_Y + 4,
-      "Can't do that now!",
-      {
-        fontFamily: GAME.FONT,
-        fontSize: '8px',
-        color: hexToCSS(BATTLE.TEXT),
-      }
-    );
-
-    // After a brief delay, return to the action menu
-    this.time.delayedCall(800, () => {
-      if (this.phase === 'cantdo') {
-        this._showActionMenu();
-      }
-    });
-  }
-
-  // ====================================================
-  // CHOICE NAVIGATION
-  // ====================================================
-
-  _navigateChoices(direction) {
-    if (direction !== 'up' && direction !== 'down') return;
-
-    const numChoices = this.currentQuiz.choices.length;
-    if (direction === 'up') {
-      this.selectedChoice = (this.selectedChoice - 1 + numChoices) % numChoices;
-    } else {
-      this.selectedChoice = (this.selectedChoice + 1) % numChoices;
-    }
-
-    audioManager.playMenuSelect();
-    this._updateChoiceCursor();
-  }
-
-  _confirmChoice() {
-    const choiceId = this.currentQuiz.choices[this.selectedChoice].id;
-    const isCorrect = choiceId === this.currentQuiz.correct;
-
-    audioManager.playConfirm();
-
-    if (isCorrect) {
-      this._handleCorrect();
-    } else {
-      this._handleWrong();
-    }
-  }
-
-  // ====================================================
-  // CLEANUP
-  // ====================================================
-
-  shutdown() {
-    // Clean up input handler listeners when leaving scene
-    inputHandler.removeAllListeners();
-    if (this.typeTimer) this.typeTimer.destroy();
-    if (this.blinkTimer) this.blinkTimer.destroy();
   }
 }

@@ -1,14 +1,10 @@
-// TitleScene - Pokemon Gold title layout (160x144 native)
+// TitleScene - Pokemon FireRed/LeafGreen GBA title screen (240x160 native)
 
 import Phaser from 'phaser';
 import { GAME, SCENES, BRANDING } from '../config.js';
 import { audioManager } from '../utils/AudioManager.js';
-import { gameState } from '../utils/StateManager.js';
-import { inputHandler } from '../utils/InputHandler.js';
-import { BG_PALETTES, BATTLE, hexToCSS, getSpritePalette } from '../data/palettes.js';
-import * as Sprites from '../data/spriteData.js';
-import { drawOverworldSprite, drawDialogFrame, drawTigerAtStage, drawGarlicCounter, drawCursor } from '../utils/TileRenderer.js';
-import { shareManager } from '../utils/ShareManager.js';
+import { ShareManager } from '../utils/ShareManager.js';
+import { StateManager } from '../utils/StateManager.js';
 
 export class TitleScene extends Phaser.Scene {
   constructor() {
@@ -16,108 +12,84 @@ export class TitleScene extends Phaser.Scene {
   }
 
   create() {
-    // Reset game state
-    gameState.reset();
-    inputHandler.init(this);
+    // Reset game state for a fresh run
+    StateManager.reset();
+
+    // White background (Gen 3 FRLG style)
+    this.cameras.main.setBackgroundColor(0xFFFFFF);
+    this.cameras.main.fadeIn(300);
 
     // Check for shared stage in URL
-    const sharedStage = shareManager.getSharedStage();
+    const { stage: sharedStage } = ShareManager.parseURLParams();
 
-    // Cream background
-    this.cameras.main.setBackgroundColor(0xF0E0D0);
-
-    // 1px black border at edges
-    const border = this.add.graphics();
-    border.lineStyle(1, 0x000000);
-    border.strokeRect(0, 0, 160, 144);
-
-    // === Title Logo ===
-    // "GARLIC" in a black-outlined box, centered near top
-    const titleG = this.add.graphics();
-    titleG.fillStyle(0x000000);
-    titleG.fillRect(40, 14, 80, 14);
-    titleG.fillStyle(0xF0E0D0);
-    titleG.fillRect(41, 15, 78, 12);
-
-    this.add.text(80, 21, 'GARLIC', {
-      fontFamily: GAME.FONT,
-      fontSize: '8px',
+    // === Title text ===
+    this.add.text(GAME.WIDTH / 2, 24, 'GARLIC TIGER', {
+      fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
+      fontSize: '12px',
       color: '#000000',
     }).setOrigin(0.5);
 
-    // "TIGER" large text with shadow below
-    this.add.text(81, 35, 'TIGER', {
-      fontFamily: GAME.FONT,
-      fontSize: '8px',
-      color: '#686868',
-    }).setOrigin(0.5);
-
-    this.add.text(80, 34, 'TIGER', {
-      fontFamily: GAME.FONT,
-      fontSize: '8px',
-      color: '#000000',
+    // Korean subtitle
+    this.add.text(GAME.WIDTH / 2, 40, '마늘 호랑이', {
+      fontFamily: `'${GAME.FONT_KO}', sans-serif`,
+      fontSize: '10px',
+      color: '#444444',
     }).setOrigin(0.5);
 
     // === Tiger sprite ===
-    const displayStage = (sharedStage !== null && sharedStage > 0) ? sharedStage : 0;
-    const tigerG = drawTigerAtStage(this, 72, 48, displayStage);
+    let tigerSprite = null;
+    if (this.textures.exists('tiger')) {
+      tigerSprite = this.add.sprite(GAME.WIDTH / 2, 80, 'tiger');
+      tigerSprite.play('tiger_down_idle');
 
-    // Idle bounce animation
-    this.tweens.add({
-      targets: tigerG,
-      y: tigerG.y - 1,
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-
-    // Garlic decorations flanking tiger (8x8)
-    if (Sprites.UI_GARLIC) {
-      const garlicLeft = this.add.graphics();
-      drawOverworldSprite(garlicLeft, 52, 56, Sprites.UI_GARLIC, BG_PALETTES[0]);
-
-      const garlicRight = this.add.graphics();
-      drawOverworldSprite(garlicRight, 100, 56, Sprites.UI_GARLIC, BG_PALETTES[0]);
+      // Idle bounce
+      this.tweens.add({
+        targets: tigerSprite,
+        y: tigerSprite.y - 2,
+        duration: 900,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
     }
 
-    // === Subtitle text ===
+    // === Shared stage info ===
     if (sharedStage !== null && sharedStage > 0) {
       const stageNames = ['Tiger', 'Furless', 'Tall', 'Seuree', 'Dark Hair', 'Korean'];
-      this.add.text(80, 72, "Friend's tiger:", {
-        fontFamily: GAME.FONT,
-        fontSize: '6px',
-        color: '#686868',
+      this.add.text(GAME.WIDTH / 2, 108, "Friend's tiger:", {
+        fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
+        fontSize: '7px',
+        color: '#666666',
       }).setOrigin(0.5);
 
-      this.add.text(80, 82, stageNames[sharedStage], {
-        fontFamily: GAME.FONT,
+      this.add.text(GAME.WIDTH / 2, 118, stageNames[sharedStage] || 'Unknown', {
+        fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
         fontSize: '8px',
         color: '#000000',
       }).setOrigin(0.5);
 
-      this.add.text(80, 92, 'Can you beat them?', {
-        fontFamily: GAME.FONT,
-        fontSize: '6px',
-        color: '#686868',
+      this.add.text(GAME.WIDTH / 2, 128, 'Can you beat them?', {
+        fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
+        fontSize: '7px',
+        color: '#666666',
       }).setOrigin(0.5);
     } else {
-      this.add.text(80, 90, 'Eat 5 garlics', {
-        fontFamily: GAME.FONT,
+      this.add.text(GAME.WIDTH / 2, 108, 'Eat 5 garlics', {
+        fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
         fontSize: '8px',
         color: '#000000',
       }).setOrigin(0.5);
 
-      this.add.text(80, 100, 'to become Korean!', {
-        fontFamily: GAME.FONT,
+      this.add.text(GAME.WIDTH / 2, 118, 'to become Korean!', {
+        fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
         fontSize: '8px',
         color: '#000000',
       }).setOrigin(0.5);
     }
 
     // === Blinking "PRESS START" ===
-    const pressStart = this.add.text(80, 120, 'PRESS START', {
-      fontFamily: GAME.FONT,
+    const pressStart = this.add.text(GAME.WIDTH / 2, 140, 'PRESS START', {
+      fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
       fontSize: '8px',
       color: '#000000',
     }).setOrigin(0.5);
@@ -129,40 +101,40 @@ export class TitleScene extends Phaser.Scene {
     });
 
     // === Copyright ===
-    this.add.text(80, 136, '2024 LOCALNOMAD', {
-      fontFamily: GAME.FONT,
+    this.add.text(GAME.WIDTH / 2, 155, `2026 ${BRANDING.NAME.toUpperCase()}`, {
+      fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
       fontSize: '6px',
-      color: '#686868',
+      color: '#999999',
     }).setOrigin(0.5);
 
     // === Input handling ===
     const startGame = () => {
+      // Prevent double-trigger
+      this.input.keyboard.off('keydown', startGame);
+      this.input.off('pointerdown', startGame);
+
       audioManager.resume();
       audioManager.playConfirm();
-      this.startGame();
+      this.transitionToIntro();
     };
 
-    inputHandler.on('action', startGame);
-
-    // Hide loading screen element
-    const loadingScreen = document.getElementById('loading-screen');
-    if (loadingScreen) {
-      loadingScreen.classList.add('hidden');
-    }
+    this.input.keyboard.on('keydown', startGame);
+    this.input.on('pointerdown', startGame);
 
     // Cleanup on shutdown
     this.events.once('shutdown', () => {
-      inputHandler.destroy();
+      this.input.keyboard.off('keydown', startGame);
+      this.input.off('pointerdown', startGame);
     });
   }
 
-  startGame() {
-    // Screen wipe transition
-    const wipe = this.add.rectangle(0, 72, 0, 144, 0x383838).setOrigin(0, 0.5);
+  transitionToIntro() {
+    // Screen wipe transition (horizontal bar from left)
+    const wipe = this.add.rectangle(0, GAME.HEIGHT / 2, 0, GAME.HEIGHT, 0x000000).setOrigin(0, 0.5);
 
     this.tweens.add({
       targets: wipe,
-      width: 160,
+      width: GAME.WIDTH,
       duration: 300,
       ease: 'Linear',
       onComplete: () => {

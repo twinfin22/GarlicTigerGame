@@ -1,169 +1,125 @@
-// InputHandler.js — Shared gesture-based input for all scenes
-// Swipe to move, tap to interact, long press for menu, keyboard fallback
+export class InputHandler {
+  constructor(scene) {
+    this.scene = scene;
+    this.keys = {};
+    this.direction = null;
+    this.actionPressed = false;
+    this.cancelPressed = false;
+    this.isMobile = 'ontouchstart' in window;
 
-class InputHandler {
-  constructor() {
-    this.scene = null;
-    this.listeners = { move: [], action: [], menu: [] };
-    this.pointerStartX = 0;
-    this.pointerStartY = 0;
-    this.pointerStartTime = 0;
-    this.isPointerDown = false;
-    this.swipeDirection = null;
-    this.holdTimer = null;
-    this.walkRepeatTimer = null;
-    this.longPressTimer = null;
-    this.cursors = null;
-    this.keySpace = null;
-    this.keyEnter = null;
-    this.keyEsc = null;
+    // Desktop keyboard
+    this.cursors = scene.input.keyboard.createCursorKeys();
+    this.keys.space = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.keys.enter = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+    this.keys.z = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
+    this.keys.x = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
+    this.keys.esc = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+
+    // Mobile controls
+    if (this.isMobile) {
+      this.createMobileControls();
+    }
+
+    // Touch state
+    this.touchDirection = null;
+    this.touchAction = false;
+    this.touchCancel = false;
   }
 
-  init(scene) {
-    this.destroy(); // Clean up previous
-    this.scene = scene;
+  createMobileControls() {
+    // Create DOM overlay for mobile D-pad + A/B buttons
+    const overlay = document.createElement('div');
+    overlay.id = 'mobile-controls';
+    overlay.style.cssText = 'position:fixed;bottom:10px;left:0;right:0;display:flex;justify-content:space-between;padding:0 20px;z-index:1000;pointer-events:none;';
 
-    // Touch/mouse
-    scene.input.on('pointerdown', this._onPointerDown, this);
-    scene.input.on('pointermove', this._onPointerMove, this);
-    scene.input.on('pointerup', this._onPointerUp, this);
+    // D-pad (left side)
+    const dpad = document.createElement('div');
+    dpad.style.cssText = 'display:grid;grid-template-columns:40px 40px 40px;grid-template-rows:40px 40px 40px;gap:2px;pointer-events:auto;';
+
+    const dirs = [
+      { label: '', grid: '1/1', dir: null },
+      { label: '\u25B2', grid: '1/2', dir: 'up' },
+      { label: '', grid: '1/3', dir: null },
+      { label: '\u25C4', grid: '2/1', dir: 'left' },
+      { label: '', grid: '2/2', dir: null },
+      { label: '\u25BA', grid: '2/3', dir: 'right' },
+      { label: '', grid: '3/1', dir: null },
+      { label: '\u25BC', grid: '3/2', dir: 'down' },
+      { label: '', grid: '3/3', dir: null },
+    ];
+
+    dirs.forEach(d => {
+      const btn = document.createElement('div');
+      btn.style.cssText = `grid-area:${d.grid};display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;opacity:${d.dir ? 0.6 : 0};user-select:none;-webkit-user-select:none;`;
+      btn.textContent = d.label;
+      if (d.dir) {
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); this.touchDirection = d.dir; });
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); this.touchDirection = null; });
+      }
+      dpad.appendChild(btn);
+    });
+
+    // Buttons (right side)
+    const btns = document.createElement('div');
+    btns.style.cssText = 'display:flex;gap:10px;align-items:flex-end;pointer-events:auto;';
+
+    const btnB = document.createElement('div');
+    btnB.style.cssText = 'width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;user-select:none;';
+    btnB.textContent = 'B';
+    btnB.addEventListener('touchstart', (e) => { e.preventDefault(); this.touchCancel = true; });
+    btnB.addEventListener('touchend', (e) => { e.preventDefault(); this.touchCancel = false; });
+
+    const btnA = document.createElement('div');
+    btnA.style.cssText = 'width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;user-select:none;';
+    btnA.textContent = 'A';
+    btnA.addEventListener('touchstart', (e) => { e.preventDefault(); this.touchAction = true; });
+    btnA.addEventListener('touchend', (e) => { e.preventDefault(); this.touchAction = false; });
+
+    btns.appendChild(btnB);
+    btns.appendChild(btnA);
+
+    overlay.appendChild(dpad);
+    overlay.appendChild(btns);
+    document.body.appendChild(overlay);
+
+    this.overlayElement = overlay;
+  }
+
+  getDirection() {
+    // Mobile first
+    if (this.touchDirection) return this.touchDirection;
 
     // Keyboard
-    if (scene.input.keyboard) {
-      this.cursors = scene.input.keyboard.createCursorKeys();
-      this.keySpace = scene.input.keyboard.addKey('SPACE');
-      this.keyEnter = scene.input.keyboard.addKey('ENTER');
-      this.keyEsc = scene.input.keyboard.addKey('ESC');
+    if (this.cursors.up.isDown) return 'up';
+    if (this.cursors.down.isDown) return 'down';
+    if (this.cursors.left.isDown) return 'left';
+    if (this.cursors.right.isDown) return 'right';
 
-      this.keySpace.on('down', () => this._emit('action'));
-      this.keyEnter.on('down', () => this._emit('action'));
-      this.keyEsc.on('down', () => this._emit('menu'));
-    }
+    return null;
   }
 
-  // Call in scene's update() to check held keyboard directions
-  update() {
-    if (!this.cursors) return;
-    if (this.cursors.up.isDown) this._emit('move', 'up');
-    else if (this.cursors.down.isDown) this._emit('move', 'down');
-    else if (this.cursors.left.isDown) this._emit('move', 'left');
-    else if (this.cursors.right.isDown) this._emit('move', 'right');
+  isActionPressed() {
+    if (this.touchAction) {
+      this.touchAction = false;
+      return true;
+    }
+    return Phaser.Input.Keyboard.JustDown(this.keys.space) ||
+           Phaser.Input.Keyboard.JustDown(this.keys.enter) ||
+           Phaser.Input.Keyboard.JustDown(this.keys.z);
   }
 
-  on(event, callback) {
-    if (this.listeners[event]) {
-      this.listeners[event].push(callback);
+  isCancelPressed() {
+    if (this.touchCancel) {
+      this.touchCancel = false;
+      return true;
     }
-  }
-
-  off(event, callback) {
-    if (this.listeners[event]) {
-      this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
-    }
-  }
-
-  removeAllListeners() {
-    this.listeners = { move: [], action: [], menu: [] };
-  }
-
-  _emit(event, data) {
-    if (this.listeners[event]) {
-      this.listeners[event].forEach(cb => cb(data));
-    }
-  }
-
-  _onPointerDown(pointer) {
-    this.pointerStartX = pointer.x;
-    this.pointerStartY = pointer.y;
-    this.pointerStartTime = Date.now();
-    this.isPointerDown = true;
-    this.swipeDirection = null;
-
-    // Start long press timer
-    this.longPressTimer = this.scene.time.delayedCall(500, () => {
-      if (this.isPointerDown && !this.swipeDirection) {
-        this._emit('menu');
-        this.isPointerDown = false;
-      }
-    });
-  }
-
-  _onPointerMove(pointer) {
-    if (!this.isPointerDown) return;
-
-    const dx = pointer.x - this.pointerStartX;
-    const dy = pointer.y - this.pointerStartY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    if (dist > 10) {
-      // Cancel long press
-      if (this.longPressTimer) {
-        this.longPressTimer.destroy();
-        this.longPressTimer = null;
-      }
-
-      // Determine swipe direction
-      if (Math.abs(dx) > Math.abs(dy)) {
-        this.swipeDirection = dx > 0 ? 'right' : 'left';
-      } else {
-        this.swipeDirection = dy > 0 ? 'down' : 'up';
-      }
-
-      this._emit('move', this.swipeDirection);
-
-      // Start hold-to-walk repeat
-      if (!this.walkRepeatTimer) {
-        this.walkRepeatTimer = this.scene.time.addEvent({
-          delay: 150,
-          callback: () => {
-            if (this.isPointerDown && this.swipeDirection) {
-              this._emit('move', this.swipeDirection);
-            }
-          },
-          loop: true,
-        });
-      }
-    }
-  }
-
-  _onPointerUp(pointer) {
-    const elapsed = Date.now() - this.pointerStartTime;
-    const dx = pointer.x - this.pointerStartX;
-    const dy = pointer.y - this.pointerStartY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    // Tap detection
-    if (elapsed < 200 && dist < 10) {
-      this._emit('action');
-    }
-
-    this.isPointerDown = false;
-    this.swipeDirection = null;
-
-    // Clean up timers
-    if (this.longPressTimer) {
-      this.longPressTimer.destroy();
-      this.longPressTimer = null;
-    }
-    if (this.walkRepeatTimer) {
-      this.walkRepeatTimer.destroy();
-      this.walkRepeatTimer = null;
-    }
+    return Phaser.Input.Keyboard.JustDown(this.keys.x) ||
+           Phaser.Input.Keyboard.JustDown(this.keys.esc);
   }
 
   destroy() {
-    if (this.scene) {
-      this.scene.input.off('pointerdown', this._onPointerDown, this);
-      this.scene.input.off('pointermove', this._onPointerMove, this);
-      this.scene.input.off('pointerup', this._onPointerUp, this);
+    if (this.overlayElement) {
+      this.overlayElement.remove();
     }
-    if (this.longPressTimer) this.longPressTimer.destroy();
-    if (this.walkRepeatTimer) this.walkRepeatTimer.destroy();
-    this.removeAllListeners();
-    this.scene = null;
-    this.cursors = null;
   }
 }
-
-// Singleton
-export const inputHandler = new InputHandler();

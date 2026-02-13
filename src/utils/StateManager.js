@@ -1,62 +1,60 @@
-// StateManager - Game state management
+import { GAME } from '../config.js';
 
-import { INITIAL_STATE } from '../config.js';
-
-class StateManager {
+class StateManagerClass {
   constructor() {
-    this.state = { ...INITIAL_STATE };
+    this.reset();
   }
 
   reset() {
-    this.state = { ...INITIAL_STATE, defeatedNPCs: [] };
+    this.garlicsCollected = 0;
+    this.transformationStage = 0;
+    this.completedQuizzes = [];
+    this.wrongAnswerCounts = {};
+    this.totalWrongAnswers = 0;
+    this.playerPosition = { x: 20, y: 31 };
+    this.gameCompleted = false;
   }
 
-  getState() { return { ...this.state }; }
-
-  setState(updates) {
-    this.state = { ...this.state, ...updates };
-  }
-
-  // Garlic management
-  addGarlic() {
-    this.state.garlicsCollected++;
-    this.state.transformationStage++;
-    this.state.currentQuiz++;
-  }
-
-  getGarlics() { return this.state.garlicsCollected; }
-
-  // Quiz management
-  getCurrentQuizIndex() { return this.state.currentQuiz; }
-
-  // Transformation stage
-  getTransformationStage() { return this.state.transformationStage; }
-
-  // Walking/encounter management
-  addTilesWalked(count = 1) { this.state.tilesWalked += count; }
-  getTilesWalked() { return this.state.tilesWalked; }
-  resetTilesWalked() { this.state.tilesWalked = 0; }
-
-  // NPC defeat tracking
-  defeatNPC(npcId) {
-    if (!this.state.defeatedNPCs.includes(npcId)) {
-      this.state.defeatedNPCs.push(npcId);
+  completeQuiz(quizId) {
+    if (!this.completedQuizzes.includes(quizId)) {
+      this.completedQuizzes.push(quizId);
+      this.garlicsCollected++;
+      this.transformationStage = this.garlicsCollected;
+    }
+    if (this.garlicsCollected >= GAME.TOTAL_GARLICS) {
+      this.gameCompleted = true;
     }
   }
 
-  isNPCDefeated(npcId) {
-    return this.state.defeatedNPCs.includes(npcId);
+  recordWrongAnswer(quizId) {
+    if (!this.wrongAnswerCounts[quizId]) this.wrongAnswerCounts[quizId] = 0;
+    this.wrongAnswerCounts[quizId]++;
+    this.totalWrongAnswers++;
   }
 
-  getNextUndefeatedNPC() {
-    // Returns the quiz index for the next undefeated NPC
-    return this.state.currentQuiz;
+  isQuizCompleted(quizId) {
+    return this.completedQuizzes.includes(quizId);
   }
 
-  // Game flow
-  startGame() { this.state.gameStarted = true; }
-  completeGame() { this.state.gameCompleted = true; }
-  isGameComplete() { return this.state.garlicsCollected >= 5; }
+  getStage() { return this.transformationStage; }
+
+  getTotalTries() {
+    return this.garlicsCollected + this.totalWrongAnswers;
+  }
+
+  savePosition(x, y) {
+    this.playerPosition = { x, y };
+  }
+
+  getShareData() {
+    return {
+      stage: this.transformationStage,
+      garlics: this.garlicsCollected,
+      totalTries: this.getTotalTries(),
+      completed: this.gameCompleted,
+      wrongAnswers: this.totalWrongAnswers,
+    };
+  }
 }
 
-export const gameState = new StateManager();
+export const StateManager = new StateManagerClass();
