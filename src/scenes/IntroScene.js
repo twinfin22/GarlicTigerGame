@@ -236,11 +236,11 @@ export class IntroScene extends Phaser.Scene {
     this.tweens.add({
       targets: [journeyKo, journeyEn],
       alpha: 1,
-      duration: 500,
+      duration: 300,
       yoyo: true,
-      hold: 1000,
+      hold: 400,
       onComplete: () => {
-        this.cameras.main.fadeOut(500);
+        this.cameras.main.fadeOut(300);
         this.cameras.main.once('camerafadeoutcomplete', () => {
           this.scene.start(SCENES.OVERWORLD);
         });

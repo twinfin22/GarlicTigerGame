@@ -1,83 +1,76 @@
-# Garlic Tiger - Project Guide
+# Garlic Tiger
 
-## Overview
-Garlic Tiger is a Game Boy Advance-style browser game built with Phaser 3 and Vite. Players guide a tiger through Korea, answering cultural quiz questions to collect garlics and transform into a Korean. Non-commercial project. Free tilesets used under non-commercial license.
+GBA-style (Pokemon FireRed/LeafGreen) browser game. Tiger collects 5 garlics through Korean culture quizzes to transform into a Korean. Built with Phaser 3 + Vite. Non-commercial project.
 
-## Tech Stack
-- **Framework**: Phaser 3.70
-- **Build Tool**: Vite 5
-- **Styling**: Pokemon FireRed/LeafGreen inspired palette with GBA-era tilesets
-- **Fonts**: Press Start 2P (English), Galmuri11 (Korean)
-- **Deployment**: Vercel
+## Commands
 
-## Project Structure
-```
-garlicGame/
-├── src/
-│   ├── scenes/             # Phaser scenes
-│   │   ├── BootScene.js    # Asset loading
-│   │   ├── TitleScene.js   # Title screen
-│   │   ├── IntroScene.js   # Story intro
-│   │   ├── OverworldScene.js # Map exploration
-│   │   ├── QuizScene.js    # NPC quiz encounters
-│   │   ├── TransformScene.js # Tiger transformation
-│   │   ├── VictoryScene.js # Victory at gate
-│   │   └── GameOverScene.js # Game over + share
-│   ├── objects/
-│   │   ├── Tiger.js        # Tiger player object
-│   │   └── DialogueBox.js  # Pokemon-style dialog
-│   ├── utils/
-│   │   ├── AudioManager.js # Pokemon Gen 3 style sound effects
-│   │   ├── StateManager.js # Game state
-│   │   ├── ShareManager.js # Social sharing
-│   │   └── GBGraphics.js   # Palette & procedural sprites
-│   ├── data/
-│   │   └── quizData.json   # Quiz questions and answers
-│   ├── config.js           # Game configuration
-│   └── main.js             # Entry point
-├── assets/
-│   └── tilesets/           # GBA-era tileset PNGs (non-commercial)
-└── vercel.json             # Deployment config
-```
+- `npm run dev` — Vite dev server (localhost:5173)
+- `npm run build` — Production build
+- `npm run preview` — Preview production build
+- Deployment: Vercel (auto-deploy from main branch)
 
-## Game Flow
-1. **Boot** → Initialize audio, show LocalNomad logo
-2. **Title** → Press start (shows shared tiger if URL has ?stage=X)
-3. **Intro** → Tiger wants to enter Korea, needs 5 garlics
-4. **Overworld** → Walk around, visit fixed quiz locations on map
-5. **Quiz** → Answer NPC questions (Korean culture)
-6. **Transform** → Tiger changes form on correct answer
-7. **Victory** → Gate opens after 5 garlics
+## Code Style
 
-## Key Features
-- **Pokemon FireRed/LeafGreen Palette**: GBA-era colors with white backgrounds (#ffffff), clean tile-based rendering
-- **GBA Tilesets**: 16x16 tile-based maps using free non-commercial tileset assets
-- **Pokemon-Style UI**: White dialog boxes with 2px black borders, cursor selection, typewriter text
-- **Bilingual**: English and Korean text using Press Start 2P and Galmuri11 fonts
-- **Fixed Quiz Locations**: 5 named locations on the map (restaurant, apartment, subway, chicken shop, cafe)
-- **Sharing**: Share tiger transformation state with URL parameter
+- ES modules only (`import`/`export`), no CommonJS
+- Named exports for scenes: `export class BootScene extends Phaser.Scene {}`
+- All player-facing text MUST be bilingual: `{ ko: "한국어", en: "English" }`
+- Fonts: `Press Start 2P` (English), `Galmuri11` (Korean) — see `GAME.FONT_EN`, `GAME.FONT_KO` in config.js
+- Import game constants from `src/config.js` — never hardcode dimensions or tile sizes
+- Use `getPalette()` from `src/utils/GBGraphics.js` for all colors
+- Use `drawDialogBox()` for Pokemon-style dialog (white box, 2px black border)
 
-## Development
-```bash
-npm install
-npm run dev     # Start dev server at localhost:3000
-npm run build   # Build for production
-```
+## Architecture
 
-## Screen Dimensions
-- Game Boy Advance: 240x160 pixels
-- Tile size: 16x16 pixels
-- Sprite size: 32x32 pixels
-- Map view: 15x10 tiles
-- Scaled 2x: 480x320 pixels
-- Scaled 3x: 720x480 pixels
-- All UI must fit within 160px native height
+- **Scene flow**: Boot → Title → Intro → Overworld → Quiz → Transform → Victory
+- **State**: `StateManager.js` holds game progress (garlics, quiz completion, transformation stage)
+- **Map**: Tile-based 40×35 grid, 5 fixed quiz locations defined in `config.js` `QUIZ_LOCATIONS` — no random encounters
+- **Quiz data**: `src/data/quizData.json` is the source of truth for all quiz content. Game design details in `docs/GAME_DESIGN_DOC.md`
+- **Audio**: `AudioManager.js` generates Pokemon Gen 3 style sounds procedurally (Web Audio API), no audio files needed
 
-## Important Notes
-- All scenes must position elements within 160px native height (240x160 GBA resolution)
-- Use `getPalette()` from GBGraphics.js for consistent colors
-- Use `drawDialogBox()` for Pokemon-style white boxes with black borders
-- Quiz data is in `src/data/quizData.json`
-- Quiz locations are defined in `config.js` QUIZ_LOCATIONS (no random encounters)
-- All tileset assets are non-commercial use only
-- Galmuri11 font loaded from jsDelivr CDN for Korean text rendering
+## Game Specs
+
+- Native resolution: 240×160 (GBA), scaled with `Phaser.Scale.FIT`
+- Tile: 16×16, Sprite: 32×32, Map view: 15×10 tiles
+- IMPORTANT: All UI must fit within 160px native height
+- Phaser config requires: `pixelArt: true`, `roundPixels: true`, `antialias: false`
+
+## Assets
+
+- `assets/tilesets/` — GBA-era 16×16 tilesets (non-commercial license, do NOT redistribute)
+- `assets/tiger/` — Tiger sprite sheets (128×128 PNG, 4 rows × 4 frames, 32×32 per frame)
+- `assets/korean/` — Korean props generated via Nano Banana (buildings, signs, food)
+- `assets/sprites/` — NPC and object sprites
+- `assets/itch-io/` — Supplementary itch.io assets
+- `assets/unused/` — OLD GBC-style assets, do NOT use these
+- Tiger sprite rows: DOWN(0) / UP(1) / LEFT(2) / RIGHT(3)
+
+## Gotchas
+
+- Vite/Rollup platform mismatch: if `Cannot find module @rollup/rollup-linux-arm64-gnu`, run `npm install @rollup/rollup-linux-arm64-gnu --save-optional`
+- node_modules may have permission issues — do NOT delete and reinstall; work around with optional deps
+- Galmuri11 font loaded from jsDelivr CDN — requires internet connection for Korean text
+- Camera zoom must match scale factor; wrong zoom = map appears cut off
+- Tile collision: check `SOLID_TILES` array in config.js, not individual tile checks
+
+## Subagents
+
+Custom subagents defined in `.claude/agents/`. Run in parallel via Task tool, each with isolated context.
+
+| Agent | Model | Role | Owns |
+|-------|-------|------|------|
+| `asset-pipeline` | sonnet | Tileset processing, sprite generation | `assets/processed/*` |
+| `map-designer` | sonnet | Map layout, tile placement, interactions | `src/data/mapData.js` |
+| `gameplay-dev` | inherit | State, encounters, quiz logic | `StateManager.js`, `overworldEvents.js`, `overworldText.js` |
+| `scale-camera` | sonnet | Sprite scale, camera smoothness | `Tiger.js`, `NPC.js`, `MapBuilder.js` |
+| `qa-tester` | haiku | Static: build validation, asset file checks | read-only |
+| `playtester` | sonnet | Dynamic: browser playtest, screenshots, visual bugs | read-only |
+
+IMPORTANT: No two agents write the same file. Check ownership before assigning work.
+Run order: code agents (parallel) → `qa-tester` → `playtester` → fix cycle.
+
+## Reference Docs
+
+- `docs/GAME_DESIGN_DOC.md` — Authoritative game content (story, quizzes, NPC dialogue)
+- `docs/AGENT_TEAM_PROMPT.md` — Multi-agent orchestration prompt for parallel development
+- `docs/PLAYTEST_CYCLE_PROMPT.md` — Browser-based play-fix testing cycle
+- `docs/VISUAL_OVERHAUL_PROMPT.md` — 4-agent parallel visual/gameplay overhaul

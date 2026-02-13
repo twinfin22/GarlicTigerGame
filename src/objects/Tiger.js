@@ -6,6 +6,7 @@ export class Tiger extends Phaser.GameObjects.Sprite {
     // x, y in world pixels (grid * TILE)
     super(scene, x, y, 'tiger', 0);
     scene.add.existing(this);
+    this.setDisplaySize(16, 16);
 
     this.gridX = Math.floor(x / GAME.TILE);
     this.gridY = Math.floor(y / GAME.TILE);
@@ -83,13 +84,12 @@ export class Tiger extends Phaser.GameObjects.Sprite {
 
   setStage(n) {
     this.transformationStage = n;
-    // Visual effects per stage
-    if (n === 0) this.clearTint();
-    else if (n === 1) this.setTint(0xFFEE88); // yellow tint
-    else if (n === 2) { this.setTint(0xFFDD66); this.setScale(1.0); }
-    else if (n === 3) this.setTint(0xFFCC44);
-    else if (n === 4) { this.setTint(0xFF9944); this.setScale(0.9, 1.1); }
-    else if (n === 5) { this.setTint(0x332211); this.setScale(0.85, 1.05); }
+    if (n === 0) { this.setDisplaySize(16, 16); this.clearTint(); }
+    else if (n === 1) { this.setDisplaySize(16, 16); this.setTint(0xFFEE88); }
+    else if (n === 2) { this.setDisplaySize(16, 16); this.setTint(0xFFDD66); }
+    else if (n === 3) { this.setDisplaySize(16, 16); this.setTint(0xFFCC44); }
+    else if (n === 4) { this.setDisplaySize(15, 17); this.setTint(0xFF9944); }
+    else if (n === 5) { this.setDisplaySize(14, 17); this.setTint(0x332211); }
   }
 
   playBowAnimation() {

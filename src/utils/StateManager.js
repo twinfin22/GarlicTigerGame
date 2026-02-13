@@ -13,6 +13,8 @@ class StateManagerClass {
     this.totalWrongAnswers = 0;
     this.playerPosition = { x: 20, y: 31 };
     this.gameCompleted = false;
+    this.stepsSinceEncounter = 0;
+    this.totalSteps = 0;
   }
 
   completeQuiz(quizId) {
@@ -54,6 +56,19 @@ class StateManagerClass {
       completed: this.gameCompleted,
       wrongAnswers: this.totalWrongAnswers,
     };
+  }
+
+  isGameComplete() {
+    return this.garlicsCollected >= GAME.TOTAL_GARLICS;
+  }
+
+  recordStep() {
+    this.totalSteps++;
+    this.stepsSinceEncounter++;
+  }
+
+  resetEncounterSteps() {
+    this.stepsSinceEncounter = 0;
   }
 }
 

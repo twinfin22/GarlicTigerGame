@@ -30,16 +30,16 @@
       "row": 10
     },
     "roof_1": {
-      "col": 14,
-      "row": 0
+      "col": 0,
+      "row": 33
     },
     "roof_2": {
-      "col": 15,
-      "row": 0
+      "col": 3,
+      "row": 33
     },
     "roof_edge": {
-      "col": 14,
-      "row": 1
+      "col": 1,
+      "row": 35
     },
     "misc_1": {
       "col": 10,
@@ -130,12 +130,12 @@
       "row": 257
     },
     "flowers_1": {
-      "col": 14,
+      "col": 13,
       "row": 0
     },
     "flowers_2": {
-      "col": 15,
-      "row": 0
+      "col": 7,
+      "row": 293
     }
   }
 }

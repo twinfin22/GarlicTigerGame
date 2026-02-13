@@ -7,6 +7,7 @@ export class NPC extends Phaser.GameObjects.Sprite {
 
     super(scene, worldX, worldY, npcKey || 'npc_ajumma');
     scene.add.existing(this);
+    this.setDisplaySize(16, 16);
 
     this.gridX = gridX;
     this.gridY = gridY;
@@ -22,10 +23,10 @@ export class NPC extends Phaser.GameObjects.Sprite {
     this.indicatorBubble.fillRoundedRect(-10, -10, 20, 20, 4);
     this.indicatorBubble.lineStyle(2, 0x000000, 1);
     this.indicatorBubble.strokeRoundedRect(-10, -10, 20, 20, 4);
-    this.indicatorBubble.setPosition(worldX, worldY - 22);
+    this.indicatorBubble.setPosition(worldX, worldY - 14);
     this.indicatorBubble.setDepth(15);
 
-    this.indicator = scene.add.text(worldX, worldY - 22, '!', {
+    this.indicator = scene.add.text(worldX, worldY - 14, '!', {
       fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
       fontSize: '12px',
       color: '#FF0000',

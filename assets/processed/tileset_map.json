@@ -1,0 +1,141 @@
+{
+  "tileWidth": 16,
+  "tileHeight": 16,
+  "cols": 16,
+  "rows": 323,
+  "sourceFile": "assets/tilesets/ekat_s_mega_gen_3_set_by_ekat99_deh8jtt.png",
+  "tiles": {
+    "grass_1": {
+      "col": 6,
+      "row": 0
+    },
+    "grass_2": {
+      "col": 7,
+      "row": 1
+    },
+    "grass_3": {
+      "col": 7,
+      "row": 0
+    },
+    "tree_top": {
+      "col": 13,
+      "row": 8
+    },
+    "tree_trunk": {
+      "col": 14,
+      "row": 8
+    },
+    "tree_leaves": {
+      "col": 13,
+      "row": 10
+    },
+    "roof_1": {
+      "col": 0,
+      "row": 33
+    },
+    "roof_2": {
+      "col": 3,
+      "row": 33
+    },
+    "roof_edge": {
+      "col": 1,
+      "row": 35
+    },
+    "misc_1": {
+      "col": 10,
+      "row": 291
+    },
+    "misc_2": {
+      "col": 4,
+      "row": 141
+    },
+    "misc_3": {
+      "col": 5,
+      "row": 141
+    },
+    "dark_border": {
+      "col": 5,
+      "row": 100
+    },
+    "dark_accent": {
+      "col": 6,
+      "row": 101
+    },
+    "shadow": {
+      "col": 7,
+      "row": 102
+    },
+    "building_wall": {
+      "col": 8,
+      "row": 123
+    },
+    "building_floor": {
+      "col": 6,
+      "row": 125
+    },
+    "building_accent": {
+      "col": 2,
+      "row": 129
+    },
+    "path_h": {
+      "col": 7,
+      "row": 47
+    },
+    "path_v": {
+      "col": 9,
+      "row": 47
+    },
+    "path_cross": {
+      "col": 8,
+      "row": 48
+    },
+    "sand_1": {
+      "col": 11,
+      "row": 253
+    },
+    "sand_2": {
+      "col": 5,
+      "row": 217
+    },
+    "sand_path": {
+      "col": 8,
+      "row": 255
+    },
+    "fence": {
+      "col": 5,
+      "row": 102
+    },
+    "wood_floor": {
+      "col": 5,
+      "row": 103
+    },
+    "wood_wall": {
+      "col": 6,
+      "row": 103
+    },
+    "water_1": {
+      "col": 3,
+      "row": 259
+    },
+    "water_2": {
+      "col": 3,
+      "row": 260
+    },
+    "water_edge": {
+      "col": 3,
+      "row": 271
+    },
+    "door": {
+      "col": 15,
+      "row": 257
+    },
+    "flowers_1": {
+      "col": 13,
+      "row": 0
+    },
+    "flowers_2": {
+      "col": 7,
+      "row": 293
+    }
+  }
+}

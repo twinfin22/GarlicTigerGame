@@ -12,8 +12,10 @@ import { MapBuilder } from '../utils/MapBuilder.js';
 import { StateManager } from '../utils/StateManager.js';
 import { audioManager } from '../utils/AudioManager.js';
 import { MAP_LAYERS, isWalkable } from '../data/mapData.js';
+import { isTallGrass } from '../data/mapData.js';
 import { SIGNS, MINI_EVENTS, ALREADY_CLEARED, RETRY_PROMPT } from '../data/overworldText.js';
 import { createBattleTransition } from '../utils/TileRenderer.js';
+import { rollEncounter } from '../data/overworldEvents.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -256,10 +258,33 @@ export class OverworldScene extends Phaser.Scene {
     // Save position
     StateManager.savePosition(gx, gy);
 
+    // Record step for encounter system
+    StateManager.recordStep();
+
+    // Check victory condition
+    if (StateManager.isGameComplete() && !this.isTransitioning) {
+      this.isTransitioning = true;
+      this.cameras.main.fadeOut(500, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.start(SCENES.VICTORY);
+      });
+      return;
+    }
+
     // Check door interactions at this tile
     const interaction = this.mapBuilder.getInteractionAt(gx, gy);
     if (interaction && interaction.type === 'door') {
       this._handleDoorInteraction(interaction);
+      return;
+    }
+
+    // Random encounters on tall grass
+    if (isTallGrass(gx, gy) && !this.isTransitioning) {
+      const encounter = rollEncounter();
+      if (encounter) {
+        audioManager.playEncounter();
+        this.dialogueBox.showText(encounter.text.ko, encounter.text.en);
+      }
     }
   }
 
@@ -368,6 +393,16 @@ export class OverworldScene extends Phaser.Scene {
       }
       case 'flyer': {
         const evt = MINI_EVENTS.flyer_ajumma;
+        if (evt) this.dialogueBox.showText(evt.ko, evt.en);
+        break;
+      }
+      case 'bench': {
+        const evt = MINI_EVENTS.park_bench;
+        if (evt) this.dialogueBox.showText(evt.ko, evt.en);
+        break;
+      }
+      case 'food_cart': {
+        const evt = MINI_EVENTS.food_cart;
         if (evt) this.dialogueBox.showText(evt.ko, evt.en);
         break;
       }

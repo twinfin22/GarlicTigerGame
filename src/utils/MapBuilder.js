@@ -102,7 +102,7 @@ export class MapBuilder {
    */
   setupCamera(camera, target) {
     camera.setBounds(0, 0, GAME.MAP_COLS * GAME.TILE, GAME.MAP_ROWS * GAME.TILE);
-    camera.startFollow(target, true, 0.5, 0.5);
+    camera.startFollow(target, true, 0.3, 0.3);
   }
 
   /**
