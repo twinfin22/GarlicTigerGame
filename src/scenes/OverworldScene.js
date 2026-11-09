@@ -15,6 +15,9 @@ import { MAP_LAYERS, isWalkable } from '../data/mapData.js';
 import { isTallGrass } from '../data/mapData.js';
 import { SIGNS, MINI_EVENTS, ALREADY_CLEARED, RETRY_PROMPT } from '../data/overworldText.js';
 import { createBattleTransition } from '../utils/TileRenderer.js';
+import { NeighborhoodGuide } from '../objects/NeighborhoodGuide.js';
+import { getNextStop, GUIDE_TEXT } from '../data/neighborhoodGuide.js';
+import { UI_COLORS, hexToCSS } from '../data/palettes.js';
 import { rollEncounter } from '../data/overworldEvents.js';
 
 // ---------------------------------------------------------------------------
@@ -49,6 +52,7 @@ export class OverworldScene extends Phaser.Scene {
   create() {
     this.isTransitioning = false;
     this.bowCooldown = false;
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this._cleanup, this);
 
     // --- Build map ---
     this.mapBuilder = new MapBuilder(this);
@@ -147,22 +151,36 @@ export class OverworldScene extends Phaser.Scene {
 
     // --- Garlic HUD (fixed to camera) ---
     this._createGarlicHUD();
+    this.guide = new NeighborhoodGuide(this);
+    this._createDestinationHint();
 
     // --- Fade in ---
     this.cameras.main.fadeIn(300);
 
     // --- Control hints for first-time players (m3 fix) ---
     this._createControlHints();
+    if (!StateManager.guideIntroduced) {
+      StateManager.guideIntroduced = true;
+      this.dialogueBox.showText(GUIDE_TEXT.welcome.ko, GUIDE_TEXT.welcome.en);
+    }
   }
 
   update(_time, _delta) {
     if (this.isTransitioning) return;
 
     // --- Consume flag-based action input ---
-    const actionPressed = this._actionFlag;
+    const inputAction = this.inputHandler.isActionPressed();
+    const actionPressed = this._actionFlag || inputAction;
+    const guidePressed = this.inputHandler.isCancelPressed();
+    if (guidePressed && !this.dialogueBox.isVisible && !this.tiger.isMoving) {
+      this.guide.toggle();
+      if (this.proximityPrompt) this.proximityPrompt.setVisible(false);
+    }
     if (this._actionFlag) {
       this._actionFlag = false;
     }
+
+    if (this.guide.isVisible || guidePressed) return;
 
     // --- Dialogue mode ---
     if (this.dialogueBox.isVisible) {
@@ -254,6 +272,8 @@ export class OverworldScene extends Phaser.Scene {
   _onTileArrived() {
     const gx = this.tiger.gridX;
     const gy = this.tiger.gridY;
+
+    this._updateDestinationHint();
 
     // Save position
     StateManager.savePosition(gx, gy);
@@ -508,9 +528,9 @@ export class OverworldScene extends Phaser.Scene {
 
     if (nearNPC) {
       if (!this.proximityPrompt) {
-        this.proximityPrompt = this.add.text(GAME.WIDTH / 2, GAME.HEIGHT - 52, 'Z: Talk', {
-          fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
-          fontSize: '7px',
+        this.proximityPrompt = this.add.text(GAME.WIDTH / 2, GAME.HEIGHT - 52, 'Z/A: 대화 / Talk', {
+          fontFamily: `'${GAME.FONT_KO}', ${GAME.FONT_FALLBACK}`,
+          fontSize: '9px',
           color: '#FFFFFF',
           backgroundColor: '#000000',
           padding: { x: 4, y: 2 },
@@ -531,9 +551,9 @@ export class OverworldScene extends Phaser.Scene {
 
   _createControlHints() {
     // Show brief control hints that fade out after a few seconds
-    this.controlHint = this.add.text(GAME.WIDTH / 2, GAME.HEIGHT - 2, 'Arrows: Move  Z: Talk', {
-      fontFamily: `'${GAME.FONT_EN}', ${GAME.FONT_FALLBACK}`,
-      fontSize: '6px',
+    this.controlHint = this.add.text(GAME.WIDTH / 2, GAME.HEIGHT - 2, `${GUIDE_TEXT.hint.ko}\n${GUIDE_TEXT.hint.en}`, {
+      fontFamily: `'${GAME.FONT_KO}', ${GAME.FONT_FALLBACK}`,
+      fontSize: '7px',
       color: '#FFFFFF',
       backgroundColor: '#000000',
       padding: { x: 4, y: 2 },
@@ -560,7 +580,28 @@ export class OverworldScene extends Phaser.Scene {
   // Cleanup
   // =========================================================================
 
+  _createDestinationHint() {
+    this.destinationHint = this.add.text(GAME.WIDTH - 4, 4, '', {
+      fontFamily: `'${GAME.FONT_KO}', ${GAME.FONT_FALLBACK}`,
+      fontSize: '8px', color: hexToCSS(UI_COLORS.TEXT_DARK),
+      backgroundColor: hexToCSS(UI_COLORS.BOX_BG), padding: { x: 4, y: 2 },
+    }).setOrigin(1, 0).setScrollFactor(0).setDepth(100);
+    this._updateDestinationHint();
+  }
+
+  _updateDestinationHint() {
+    if (!this.destinationHint) return;
+    const stop = getNextStop(StateManager.completedQuizzes);
+    if (!stop) { this.destinationHint.setText('완료 / ALL STAMPS'); return; }
+    const dx = stop.x - this.tiger.gridX;
+    const dy = stop.y - this.tiger.gridY;
+    const direction = `${dy < 0 ? '↑' : dy > 0 ? '↓' : ''}${dx < 0 ? '←' : dx > 0 ? '→' : ''}`;
+    this.destinationHint.setText(`${direction} ${stop.name.ko} / ${stop.name.en}`);
+  }
+
   _cleanup() {
+    if (this.guide) { this.guide.destroy(); this.guide = null; }
+    if (this.destinationHint) { this.destinationHint.destroy(); this.destinationHint = null; }
     if (this._onKeyDown) {
       this.input.keyboard.off('keydown', this._onKeyDown);
       this._onKeyDown = null;
