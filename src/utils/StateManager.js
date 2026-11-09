@@ -13,6 +13,7 @@ class StateManagerClass {
     this.totalWrongAnswers = 0;
     this.playerPosition = { x: 20, y: 31 };
     this.gameCompleted = false;
+    this.guideIntroduced = false;
     this.stepsSinceEncounter = 0;
     this.totalSteps = 0;
   }

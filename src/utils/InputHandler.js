@@ -1,3 +1,5 @@
+import Phaser from 'phaser';
+
 export class InputHandler {
   constructor(scene) {
     this.scene = scene;
@@ -55,6 +57,7 @@ export class InputHandler {
       if (d.dir) {
         btn.addEventListener('touchstart', (e) => { e.preventDefault(); this.touchDirection = d.dir; });
         btn.addEventListener('touchend', (e) => { e.preventDefault(); this.touchDirection = null; });
+        btn.addEventListener('touchcancel', () => { this.touchDirection = null; });
       }
       dpad.appendChild(btn);
     });
@@ -74,6 +77,9 @@ export class InputHandler {
     btnA.textContent = 'A';
     btnA.addEventListener('touchstart', (e) => { e.preventDefault(); this.touchAction = true; });
     btnA.addEventListener('touchend', (e) => { e.preventDefault(); this.touchAction = false; });
+
+    btnA.addEventListener('touchcancel', () => { this.touchAction = false; });
+    btnB.addEventListener('touchcancel', () => { this.touchCancel = false; });
 
     btns.appendChild(btnB);
     btns.appendChild(btnA);
